@@ -2,10 +2,10 @@
 
 export type TutorMode = "explain" | "quiz" | "homework";
 
-const MODES: { id: TutorMode; label: string }[] = [
-  { id: "explain",  label: "Explain"  },
-  { id: "quiz",     label: "Quiz"     },
-  { id: "homework", label: "Homework" },
+const MODES: { id: TutorMode; label: string; helper: string }[] = [
+  { id: "explain",  label: "Explain",  helper: "Walk me through it" },
+  { id: "quiz",     label: "Quiz",     helper: "Check my understanding" },
+  { id: "homework", label: "Homework", helper: "Work through my sheet" },
 ];
 
 interface ModeSelectorProps {
@@ -15,18 +15,32 @@ interface ModeSelectorProps {
 
 export default function ModeSelector({ selected, onChange }: ModeSelectorProps) {
   return (
-    <div className="flex rounded-xl bg-slate-800/80 border border-slate-700/50 p-0.5 gap-0.5">
+    <div className="inline-flex rounded-2xl bg-slate-900/80 border border-slate-800/70 p-1 gap-1 shadow-[0_0_0_1px_rgba(15,23,42,0.9)]">
       {MODES.map((m) => (
         <button
           key={m.id}
           onClick={() => onChange(m.id)}
-          className={`px-5 py-1.5 rounded-lg text-sm font-semibold transition-all duration-150 ${
-            selected === m.id
-              ? "bg-emerald-600 text-white shadow-sm"
-              : "text-slate-400 hover:text-white hover:bg-slate-700/60"
-          }`}
+          className={`
+            px-4 py-1.5 rounded-xl text-xs font-medium transition-all duration-150
+            flex flex-col items-center justify-center min-w-[92px]
+            ${selected === m.id
+              ? "bg-emerald-600 text-emerald-50 shadow-sm shadow-emerald-500/40"
+              : "text-slate-300/80 hover:text-slate-100 hover:bg-slate-800/80"
+            }
+          `}
+          type="button"
         >
-          {m.label}
+          <span className="text-[12px] font-semibold leading-tight">
+            {m.label}
+          </span>
+          <span
+            className={`
+              mt-0.5 text-[10px] leading-tight
+              ${selected === m.id ? "text-emerald-50/90" : "text-slate-500"}
+            `}
+          >
+            {m.helper}
+          </span>
         </button>
       ))}
     </div>

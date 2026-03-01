@@ -29,3 +29,6 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+
+# Claude local settings (may contain tokens)
+/.claude/settings.local.json

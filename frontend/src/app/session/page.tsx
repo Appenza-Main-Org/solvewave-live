@@ -19,6 +19,45 @@ const STATE_CONFIG: Record<LiveState, { dot: string; label: string; pulse: boole
   error:        { dot: "bg-red-500",    label: "Error",        pulse: false },
 };
 
+const LIVE_STRIP_COPY: Record<LiveState, { title: string; body: string }> = {
+  idle: {
+    title: "Ready",
+    body: "Click Start session in the header, then speak or type a math problem.",
+  },
+  connecting: {
+    title: "Connecting to your tutor…",
+    body: "Setting up a live audio channel with Faheem.",
+  },
+  connected: {
+    title: "Live",
+    body: "Faheem is ready — speak, type, or snap a math problem.",
+  },
+  thinking: {
+    title: "Thinking through your steps…",
+    body: "Faheem is working out the next step in the solution.",
+  },
+  seeing: {
+    title: "Seeing your image…",
+    body: "Faheem is reading the problem from your photo.",
+  },
+  listening: {
+    title: "Listening",
+    body: "Speak naturally — you can cut in at any time.",
+  },
+  speaking: {
+    title: "Explaining the next step…",
+    body: "Listen for the explanation, or interrupt with a follow-up question.",
+  },
+  interrupted: {
+    title: "Interrupted",
+    body: "You cut in — Faheem stopped speaking and is listening to your new question.",
+  },
+  error: {
+    title: "Connection issue",
+    body: "End the session and start again. If this keeps happening, check your network.",
+  },
+};
+
 // ── Page ────────────────────────────────────────────────────────────────────
 export default function SessionPage() {
   const [mode, setMode]               = useState<TutorMode>("explain");
@@ -45,6 +84,28 @@ export default function SessionPage() {
 
   const state   = STATE_CONFIG[liveState];
   const canSend = isActive && (imageFile !== null || text.trim().length > 0);
+
+  const modeSuggestions: string[] =
+    mode === "quiz"
+      ? [
+          "Quiz me on solving 3x + 5 = 14",
+          "Ask me questions about derivatives",
+          "Give me a quick fraction checkpoint",
+          "Give me a 3-question algebra quiz",
+        ]
+      : mode === "homework"
+      ? [
+          "Walk through this homework sheet with me",
+          "Help me start this word problem",
+          "Check my steps on this worksheet",
+          "Summarize my homework at the end",
+        ]
+      : [
+          "Explain how to solve 3x + 5 = 14",
+          "Explain what a derivative means",
+          "Explain why my fraction answer is wrong",
+          "Explain this homework question from a photo",
+        ];
 
   // ── Auto-start voice once session is live ──────────────────────────────────
   useEffect(() => {
@@ -116,16 +177,21 @@ export default function SessionPage() {
     <div className="flex flex-col h-screen bg-slate-950 overflow-hidden">
 
       {/* ── Header ────────────────────────────────────────────────────────── */}
-      <header className="flex-none flex items-center gap-4 px-5 h-14 border-b border-slate-800/60 bg-slate-950/95 backdrop-blur z-10">
+      <header className="flex-none flex items-center gap-4 px-5 h-16 border-b border-slate-800/60 bg-slate-950/95 backdrop-blur z-10">
 
         {/* Brand */}
         <div className="flex items-center gap-2.5 shrink-0">
-          <div className="w-7 h-7 rounded-lg bg-emerald-600 flex items-center justify-center text-sm font-bold text-white">
+          <div className="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center text-sm font-bold text-white shadow-sm">
             F
           </div>
-          <span className="font-bold text-base tracking-tight">
-            Faheem <span className="text-emerald-400">Math</span>
-          </span>
+          <div className="flex flex-col">
+            <span className="font-semibold text-sm tracking-tight text-slate-200">
+              Faheem <span className="text-emerald-400">Math</span>
+            </span>
+            <span className="text-[11px] text-slate-500 leading-tight">
+              Live bilingual math tutor
+            </span>
+          </div>
         </div>
 
         {/* Mode Tab Bar — centered */}
@@ -133,47 +199,192 @@ export default function SessionPage() {
           <ModeSelector selected={mode} onChange={handleModeChange} />
         </div>
 
-        {/* Live state pill */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 shrink-0">
-          <span
-            className={`w-2 h-2 rounded-full shrink-0 ${state.dot} ${state.pulse ? "animate-pulse" : ""}`}
-          />
-          <span className="text-xs text-slate-300 font-medium">{state.label}</span>
+        {/* Live state + session controls */}
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/90 border border-slate-800">
+            <span
+              className={`w-2 h-2 rounded-full shrink-0 ${state.dot} ${state.pulse ? "animate-pulse" : ""}`}
+            />
+            <span className="text-xs text-slate-300 font-medium">{state.label}</span>
+          </div>
+          <button
+            onClick={() => {
+              if (isActive) {
+                stopSession();
+              } else {
+                autoVoiceRef.current = true; // auto-start voice once connected
+                startSession();
+              }
+            }}
+            disabled={status === "connecting"}
+            className={`
+              flex-none px-3.5 h-9 rounded-full text-xs font-semibold whitespace-nowrap
+              transition-all duration-150 active:scale-95 border border-transparent
+              ${isActive
+                ? "bg-red-600/90 hover:bg-red-500 text-white"
+                : "bg-emerald-600 hover:bg-emerald-500 text-white"
+              }
+              disabled:opacity-50 disabled:cursor-not-allowed
+            `}
+          >
+            {status === "connecting" ? "Connecting…" : isActive ? "End session" : "Start session"}
+          </button>
         </div>
       </header>
 
-      {/* ── Transcript ──────────────────────────────────────────────────────── */}
-      <main className="flex-1 overflow-hidden">
-        <TranscriptPanel
-          entries={transcript}
-          isThinking={isThinking && isActive}
-        />
-      </main>
+      {/* ── Main layout: transcript + side panel ───────────────────────────── */}
+      <main className="flex-1 overflow-hidden px-4 py-3 lg:px-6 lg:py-4">
+        <div className="h-full flex flex-col lg:flex-row gap-4 lg:gap-5">
 
-      {/* ── Image attachment preview ──────────────────────────────────────── */}
-      {imagePreview && imageFile && (
-        <div className="flex-none flex items-center gap-3 px-4 py-2.5 border-t border-slate-800/60 bg-slate-900/70">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={imagePreview}
-            alt="Attachment preview"
-            className="h-11 w-11 rounded-lg object-cover border border-slate-700 shrink-0"
-          />
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-slate-300 truncate">{imageFile.name}</p>
-            <p className="text-xs text-slate-500">
-              {(imageFile.size / 1024).toFixed(1)} KB · {imageFile.type}
-            </p>
-          </div>
-          <button
-            onClick={handleImageClear}
-            className="flex-none text-slate-500 hover:text-slate-200 transition-colors p-1.5 rounded-lg hover:bg-slate-800"
-            aria-label="Remove image"
-          >
-            ✕
-          </button>
+          {/* Primary: transcript / live tutoring surface */}
+          <section className="flex-1 min-w-0 flex flex-col gap-3">
+            <div className="flex-1 rounded-2xl bg-slate-900/70 border border-slate-800/70 shadow-[0_0_0_1px_rgba(15,23,42,0.9)] overflow-hidden">
+              <TranscriptPanel
+                entries={transcript}
+                isThinking={isThinking && isActive}
+              />
+            </div>
+
+            {/* Live voice / state strip */}
+            <div
+              className={`
+                flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs
+                border bg-slate-950/80
+                ${
+                  liveState === "error"
+                    ? "border-red-500/60 text-red-100 bg-red-950/40"
+                    : liveState === "interrupted"
+                    ? "border-orange-500/60 text-orange-50 bg-slate-950/80"
+                    : "border-slate-800 text-slate-300"
+                }
+              `}
+            >
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`
+                    w-2 h-2 rounded-full ${state.dot}
+                    ${state.pulse ? "animate-pulse" : ""}
+                  `}
+                />
+                <span className="text-[11px] font-semibold uppercase tracking-[0.16em]">
+                  {LIVE_STRIP_COPY[liveState].title}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] text-slate-400 truncate">
+                  {LIVE_STRIP_COPY[liveState].body}
+                </p>
+              </div>
+              {voiceActive && liveState !== "error" && (
+                <div className="flex items-end gap-[3px] h-6">
+                  {[1, 2, 3, 4].map((b) => (
+                    <div
+                      // eslint-disable-next-line react/no-array-index-key
+                      key={b}
+                      className="w-1 rounded-full bg-emerald-400/80 animate-[bounce_1.1s_ease-in-out_infinite]"
+                      style={{
+                        height: `${6 + b * 4}px`,
+                        animationDelay: `${b * 90}ms`,
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Secondary: contextual side panel */}
+          <aside className="w-full lg:w-80 flex-none flex flex-col gap-3 lg:gap-4 mt-3 lg:mt-0">
+            {/* Current problem context */}
+            <div className="rounded-2xl bg-slate-900/80 border border-slate-800/70 px-4 py-3">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="flex flex-col">
+                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                    Current mode
+                  </span>
+                  <span className="text-sm font-semibold text-slate-100">
+                    {mode === "explain"
+                      ? "Explain — step-by-step coaching"
+                      : mode === "quiz"
+                      ? "Quiz — check my understanding"
+                      : "Homework — help me solve & recap"}
+                  </span>
+                </div>
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Tell Faheem what you are working on, or snap a photo of your math problem. He will adapt his style to the selected mode.
+              </p>
+            </div>
+
+            {/* Image / attachment card */}
+            <div className="rounded-2xl bg-slate-900/80 border border-slate-800/70 px-4 py-3">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                    Problem image
+                  </span>
+                  <p className="text-xs text-slate-500">
+                    {imageFile ? "Attached — sent with your next message" : "Optional — snap or upload homework"}
+                  </p>
+                </div>
+              </div>
+
+              {imagePreview && imageFile ? (
+                <div className="mt-2 flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={imagePreview}
+                    alt="Math problem preview"
+                    className="h-14 w-14 rounded-lg object-cover border border-slate-700 shrink-0 bg-slate-950"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-slate-200 truncate">
+                      {imageFile.name}
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      {(imageFile.size / 1024).toFixed(1)} KB · {imageFile.type}
+                    </p>
+                    <button
+                      onClick={handleImageClear}
+                      className="mt-1.5 text-[11px] text-slate-400 hover:text-slate-100 underline-offset-2 hover:underline"
+                      type="button"
+                    >
+                      Remove image
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-2 rounded-xl border border-dashed border-slate-700/80 bg-slate-950/40 px-3 py-2.5 text-xs text-slate-500">
+                  <p className="mb-1.5">
+                    Snap a photo of your worksheet or upload a screenshot. Use the{" "}
+                    <span className="text-slate-200 font-medium">camera button</span> below to attach it.
+                  </p>
+                  <p className="text-[11px] text-slate-600">
+                    Ideal for handwritten algebra, geometry diagrams, or word problems.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Quick hints (mode-aware) */}
+            <div className="rounded-2xl bg-slate-900/80 border border-slate-800/70 px-4 py-3">
+              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                Try asking in {mode === "explain" ? "Explain" : mode === "quiz" ? "Quiz" : "Homework"} mode
+              </span>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {modeSuggestions.map((s) => (
+                  <span
+                    key={s}
+                    className="px-2.5 py-1 rounded-full bg-slate-800/80 text-[11px] text-slate-200"
+                  >
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </aside>
         </div>
-      )}
+      </main>
 
       {/* ── Composer bar ────────────────────────────────────────────────────── */}
       <div className="flex-none flex items-end gap-2 px-4 py-3 border-t border-slate-800/60 bg-slate-950">
@@ -192,6 +403,7 @@ export default function SessionPage() {
             }
             disabled:opacity-30 disabled:cursor-not-allowed
           `}
+          type="button"
         >
           📷
         </button>
@@ -218,6 +430,7 @@ export default function SessionPage() {
             }
             disabled:opacity-30 disabled:cursor-not-allowed
           `}
+          type="button"
         >
           {voiceActive ? "⏹" : "🎙"}
         </button>
@@ -236,7 +449,7 @@ export default function SessionPage() {
               ? "Ask about the problem in the image… (optional)"
               : isActive
               ? "Type a math problem… (Enter to send)"
-              : "Click Start to begin — mic starts automatically"
+              : "Click Start session above, then speak or type a problem"
           }
           dir="auto"
           className="
@@ -258,32 +471,9 @@ export default function SessionPage() {
             transition-all duration-150
             disabled:opacity-30 disabled:cursor-not-allowed active:scale-95
           "
+          type="button"
         >
           ↑
-        </button>
-
-        {/* Start / End session */}
-        <button
-          onClick={() => {
-            if (isActive) {
-              stopSession();
-            } else {
-              autoVoiceRef.current = true;  // auto-start voice once connected
-              startSession();
-            }
-          }}
-          disabled={status === "connecting"}
-          className={`
-            flex-none px-4 h-10 rounded-xl text-sm font-semibold whitespace-nowrap
-            transition-all duration-150 active:scale-95
-            ${isActive
-              ? "bg-red-600/90 hover:bg-red-500 text-white"
-              : "bg-emerald-600 hover:bg-emerald-500 text-white"
-            }
-            disabled:opacity-50 disabled:cursor-not-allowed
-          `}
-        >
-          {status === "connecting" ? "…" : isActive ? "End" : "Start"}
         </button>
       </div>
 
