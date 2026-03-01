@@ -14,6 +14,31 @@ interface TranscriptPanelProps {
   isThinking?: boolean;
 }
 
+function renderTextLines(text: string) {
+  const lines = text.split("\n");
+  return lines.map((line, idx) => {
+    const trimmed = line.trimStart();
+    const stepMatch = trimmed.match(/^(\d+)[\.\)]\s+(.*)$/);
+
+    if (stepMatch) {
+      return (
+        <p key={idx} className="flex gap-2">
+          <span className="text-xs font-semibold text-emerald-300 mt-[1px]">
+            {stepMatch[1]}.
+          </span>
+          <span className="flex-1">{stepMatch[2]}</span>
+        </p>
+      );
+    }
+
+    return (
+      <p key={idx}>
+        {line}
+      </p>
+    );
+  });
+}
+
 export default function TranscriptPanel({
   entries,
   isThinking = false,
@@ -33,16 +58,25 @@ export default function TranscriptPanel({
         </div>
         <div>
           <p className="text-base font-semibold text-slate-300">
-            Your math tutor is ready
+            Your live math tutor is ready
           </p>
           <p className="text-sm text-slate-500 mt-1.5">
-            Press <span className="text-emerald-400 font-semibold">Start</span> — mic starts automatically, or type/snap a problem
+            Click <span className="text-emerald-400 font-semibold">Start session</span> in the header — then speak, type, or snap a math problem.
           </p>
         </div>
-        <div className="flex gap-3 mt-1 text-xs text-slate-600">
-          <span className="px-2.5 py-1 rounded-full bg-slate-800/80">📝 Type</span>
-          <span className="px-2.5 py-1 rounded-full bg-slate-800/80">🎙 Speak</span>
-          <span className="px-2.5 py-1 rounded-full bg-slate-800/80">📷 Snap</span>
+        <div className="flex flex-wrap justify-center gap-2 mt-2 text-xs text-slate-600 max-w-xl">
+          <span className="px-2.5 py-1 rounded-full bg-slate-800/80">
+            Try: Solve 3x + 5 = 14
+          </span>
+          <span className="px-2.5 py-1 rounded-full bg-slate-800/80">
+            Try: Explain what a derivative means
+          </span>
+          <span className="px-2.5 py-1 rounded-full bg-slate-800/80">
+            Try: Check my fraction steps
+          </span>
+          <span className="px-2.5 py-1 rounded-full bg-slate-800/80">
+            Try: Snap a photo of my homework
+          </span>
         </div>
       </div>
     );
@@ -50,56 +84,76 @@ export default function TranscriptPanel({
 
   // ── Conversation ─────────────────────────────────────────────────────────────
   return (
-    <div className="h-full overflow-y-auto px-4 pt-4 pb-2 space-y-4">
+    <div className="h-full overflow-y-auto px-4 pt-4 pb-3 space-y-4">
 
-      {entries.map((e, i) => (
-        <div
-          key={i}
-          className={`flex gap-3 ${e.role === "student" ? "flex-row-reverse" : "flex-row"}`}
-        >
-          {/* Avatar */}
-          <div
-            className={`
-              flex-none w-8 h-8 rounded-full flex items-center justify-center
-              text-xs font-bold shrink-0 mt-0.5
-              ${e.role === "tutor"
-                ? "bg-emerald-700 text-emerald-100"
-                : "bg-slate-600 text-slate-200"
-              }
-            `}
-          >
-            {e.role === "tutor" ? "F" : "U"}
-          </div>
+      {entries.map((e, i) => {
+        const isRecap =
+          e.role === "tutor" && e.text.trim().startsWith("✓");
 
-          {/* Bubble + timestamp */}
+        return (
           <div
-            className={`flex flex-col gap-1 max-w-[76%] ${
-              e.role === "student" ? "items-end" : "items-start"
-            }`}
+            key={i}
+            className={`flex gap-3 ${e.role === "student" ? "flex-row-reverse" : "flex-row"}`}
           >
+            {/* Avatar */}
             <div
               className={`
-                px-4 py-3 rounded-2xl text-sm leading-relaxed
+                flex-none w-8 h-8 rounded-full flex items-center justify-center
+                text-xs font-bold shrink-0 mt-0.5
                 ${e.role === "tutor"
-                  ? "bg-slate-800/90 text-slate-100 rounded-tl-sm border border-slate-700/40"
-                  : "bg-emerald-700/20 text-emerald-50 rounded-tr-sm border border-emerald-700/30"
+                  ? "bg-emerald-700 text-emerald-100"
+                  : "bg-slate-600 text-slate-200"
                 }
               `}
             >
-              {e.imageUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={e.imageUrl}
-                  alt="Shared image"
-                  className="rounded-xl max-h-48 mb-2.5 w-full object-contain bg-slate-900"
-                />
-              )}
-              <p className="whitespace-pre-wrap">{e.text}</p>
+              {e.role === "tutor" ? "F" : "U"}
             </div>
-            <span className="text-xs text-slate-600 px-1">{e.timestamp}</span>
+
+            {/* Label + bubble + timestamp */}
+            <div
+              className={`flex flex-col gap-1 max-w-[76%] ${
+                e.role === "student" ? "items-end" : "items-start"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-medium tracking-wide text-slate-500 uppercase">
+                  {e.role === "tutor" ? "Faheem" : "You"}
+                </span>
+                {isRecap && (
+                  <span className="text-[10px] uppercase tracking-[0.14em] text-emerald-300 bg-emerald-900/40 border border-emerald-500/40 rounded-full px-2 py-0.5">
+                    Recap
+                  </span>
+                )}
+              </div>
+              <div
+                className={`
+                  px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm
+                  ${
+                    isRecap
+                      ? "bg-slate-900 text-slate-100 border border-emerald-600/70"
+                      : e.role === "tutor"
+                      ? "bg-slate-800/95 text-slate-100 rounded-tl-lg border border-slate-700/60"
+                      : "bg-emerald-700/15 text-emerald-50 rounded-tr-lg border border-emerald-700/40"
+                  }
+                `}
+              >
+                {e.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={e.imageUrl}
+                    alt="Shared image"
+                    className="rounded-xl max-h-48 mb-2.5 w-full object-contain bg-slate-900"
+                  />
+                )}
+                <div className="space-y-1 whitespace-pre-wrap">
+                  {renderTextLines(e.text)}
+                </div>
+              </div>
+              <span className="text-xs text-slate-600 px-1">{e.timestamp}</span>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       {/* ── Thinking indicator ─────────────────────────────────────────────── */}
       {isThinking && (

@@ -25,6 +25,11 @@ app.add_middleware(
 )
 
 
+@app.get("/")
+async def root():
+    return {"service": "Faheem Live API", "status": "running", "version": "0.1.0"}
+
+
 @app.get("/health")
 async def health_check():
     return {

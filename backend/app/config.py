@@ -7,8 +7,8 @@ class Settings(BaseSettings):
     gemini_api_key: str
 
     # Optional with defaults
-    gemini_model: str = "gemini-2.0-flash-live-001"   # Live API (audio)
-    gemini_text_model: str = "gemini-2.0-flash"        # standard text API
+    gemini_model: str = "gemini-2.5-flash-native-audio-latest"  # Live API (audio)
+    gemini_text_model: str = "gemini-2.5-flash"        # standard text API
     gemini_stub: bool = False          # set GEMINI_STUB=true to skip real API calls
     cors_origins: list[str] = ["http://localhost:3000"]
     log_level: str = "INFO"
