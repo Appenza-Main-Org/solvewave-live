@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import katex from "katex";
 
 export interface TranscriptEntry {
   role: "tutor" | "student";
@@ -15,30 +16,100 @@ interface TranscriptPanelProps {
   isThinking?: boolean;
 }
 
+// ── Inline content processor (math + bold) ───────────────────────────────────
+
+function processInlineContent(text: string): string {
+  // Escape HTML first (we use dangerouslySetInnerHTML)
+  let html = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+
+  // Display math: $$...$$
+  html = html.replace(/\$\$([\s\S]+?)\$\$/g, (_, math) => {
+    try {
+      return katex.renderToString(math.trim(), {
+        displayMode: true,
+        throwOnError: false,
+      });
+    } catch {
+      return `$$${math}$$`;
+    }
+  });
+
+  // Inline math: $...$
+  html = html.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
+    try {
+      return katex.renderToString(math.trim(), {
+        displayMode: false,
+        throwOnError: false,
+      });
+    } catch {
+      return `$${math}$`;
+    }
+  });
+
+  // Bold: **text**
+  html = html.replace(
+    /\*\*(.+?)\*\*/g,
+    '<strong class="font-semibold text-slate-50">$1</strong>'
+  );
+
+  return html;
+}
+
+// ── Line renderer ────────────────────────────────────────────────────────────
+
 function renderTextLines(text: string) {
   const lines = text.split("\n");
   return lines.map((line, idx) => {
     const trimmed = line.trimStart();
-    const stepMatch = trimmed.match(/^(\d+)[\.\)]\s+(.*)$/);
 
+    // Numbered list: "1. ..." or "1) ..."
+    const stepMatch = trimmed.match(/^(\d+)[\.\)]\s+(.*)$/);
     if (stepMatch) {
       return (
         <p key={idx} className="flex gap-2">
-          <span className="text-xs font-semibold text-emerald-300 mt-[1px]">
+          <span className="text-xs font-semibold text-emerald-300 mt-[1px] shrink-0">
             {stepMatch[1]}.
           </span>
-          <span className="flex-1">{stepMatch[2]}</span>
+          <span
+            className="flex-1"
+            dangerouslySetInnerHTML={{
+              __html: processInlineContent(stepMatch[2]),
+            }}
+          />
         </p>
       );
     }
 
+    // Bullet list: "* ..." or "- ..."
+    const bulletMatch = trimmed.match(/^[\*\-]\s+(.*)$/);
+    if (bulletMatch) {
+      return (
+        <p key={idx} className="flex gap-2 ml-1">
+          <span className="text-emerald-400 mt-[1px] shrink-0">·</span>
+          <span
+            className="flex-1"
+            dangerouslySetInnerHTML={{
+              __html: processInlineContent(bulletMatch[1]),
+            }}
+          />
+        </p>
+      );
+    }
+
+    // Regular line
     return (
-      <p key={idx}>
-        {line}
-      </p>
+      <p
+        key={idx}
+        dangerouslySetInnerHTML={{ __html: processInlineContent(line) }}
+      />
     );
   });
 }
+
+// ── Component ────────────────────────────────────────────────────────────────
 
 export default function TranscriptPanel({
   entries,
@@ -154,7 +225,7 @@ export default function TranscriptPanel({
                     className="rounded-xl max-h-48 mb-2.5 w-full object-contain bg-slate-900"
                   />
                 )}
-                <div className="space-y-1 whitespace-pre-wrap">
+                <div className="space-y-1.5 whitespace-pre-wrap break-words">
                   {renderTextLines(e.text)}
                 </div>
               </div>

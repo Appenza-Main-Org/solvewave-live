@@ -84,6 +84,7 @@ export default function SessionPage() {
     startSession,
     stopSession,
     sendText,
+    sendTextQuiet,
     sendImage,
     startVoice,
     stopVoice,
@@ -93,6 +94,14 @@ export default function SessionPage() {
 
   const state   = STATE_CONFIG[liveState];
   const canSend = isActive && (imageFile !== null || text.trim().length > 0);
+
+  // Refs to avoid stale closures in voice transcription callbacks
+  const sendTextQuietRef = useRef(sendTextQuiet);
+  sendTextQuietRef.current = sendTextQuiet;
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+  const isActiveRef = useRef(isActive);
+  isActiveRef.current = isActive;
 
   // ── Voice transcription callbacks ─────────────────────────────────────────
 
@@ -157,11 +166,10 @@ export default function SessionPage() {
       ];
     });
 
-    // Optional: send final transcript to backend so Gemini sees it in context
-    // (Uncomment if you want voice captions sent to the tutor)
-    // if (isActive) {
-    //   sendText(text, mode);
-    // }
+    // Send final transcript to backend so Gemini responds to it
+    if (isActiveRef.current) {
+      sendTextQuietRef.current(text, modeRef.current);
+    }
   }, [setTranscript]);
 
   const { isSupported: transcriptionSupported, isRunning: transcriptionRunning, startTranscription, stopTranscription } =

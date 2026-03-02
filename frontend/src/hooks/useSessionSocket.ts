@@ -356,6 +356,24 @@ export function useSessionSocket() {
     [append]
   );
 
+  /** Send text to the backend without appending to transcript (used by voice transcription). */
+  const sendTextQuiet = useCallback(
+    (text: string, mode: TutorMode = "explain") => {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        log.error("sendTextQuiet called but WS not open");
+        return;
+      }
+
+      log.ws("sendTextQuiet (voice)", { text: text.slice(0, 80), mode });
+      setIsThinking(true);
+      setLastSentType("text");
+
+      ws.send(JSON.stringify({ type: "text", text, mode }));
+    },
+    []
+  );
+
   // ── Send image ─────────────────────────────────────────────────────────────
 
   const sendImage = useCallback(
@@ -417,6 +435,7 @@ export function useSessionSocket() {
     startSession,
     stopSession,
     sendText,
+    sendTextQuiet,
     sendImage,
     startVoice,
     stopVoice,
