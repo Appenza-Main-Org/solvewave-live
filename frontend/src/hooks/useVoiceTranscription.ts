@@ -37,7 +37,15 @@ export function useVoiceTranscription(callbacks?: VoiceTranscriptionCallbacks) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
-  const { onPartial, onFinal, onError } = callbacks || {};
+  const wantRunningRef = useRef(false); // true while user wants transcription active
+
+  // Use refs for callbacks so the recognition instance always calls the latest version
+  const onPartialRef = useRef(callbacks?.onPartial);
+  onPartialRef.current = callbacks?.onPartial;
+  const onFinalRef = useRef(callbacks?.onFinal);
+  onFinalRef.current = callbacks?.onFinal;
+  const onErrorRef = useRef(callbacks?.onError);
+  onErrorRef.current = callbacks?.onError;
 
   // ── Check browser support on mount ───────────────────────────────────────
 
@@ -60,7 +68,7 @@ export function useVoiceTranscription(callbacks?: VoiceTranscriptionCallbacks) {
   const startTranscription = useCallback(() => {
     if (!isSupported) {
       log.voice("Cannot start transcription: Web Speech API not supported");
-      onError?.("Web Speech API is not supported in this browser.");
+      onErrorRef.current?.("Web Speech API is not supported in this browser.");
       return;
     }
 
@@ -68,6 +76,8 @@ export function useVoiceTranscription(callbacks?: VoiceTranscriptionCallbacks) {
       log.voice("Transcription already running — ignoring startTranscription");
       return;
     }
+
+    wantRunningRef.current = true;
 
     const SpeechRecognition =
       (window as any).SpeechRecognition ||
@@ -93,10 +103,10 @@ export function useVoiceTranscription(callbacks?: VoiceTranscriptionCallbacks) {
 
         if (result.isFinal) {
           log.voice(`Final transcript: "${transcript}"`);
-          onFinal?.(transcript);
+          onFinalRef.current?.(transcript);
         } else {
           log.voice(`Partial transcript: "${transcript}"`);
-          onPartial?.(transcript);
+          onPartialRef.current?.(transcript);
         }
       }
     };
@@ -115,27 +125,52 @@ export function useVoiceTranscription(callbacks?: VoiceTranscriptionCallbacks) {
         return;
       }
 
-      onError?.(event.error);
+      onErrorRef.current?.(event.error);
 
-      // If error is fatal, stop
+      // If error is fatal, stop wanting to run
       if (["not-allowed", "service-not-allowed"].includes(event.error)) {
-        stopTranscription();
+        wantRunningRef.current = false;
       }
     };
 
     recognition.onend = () => {
       log.voice("Transcription ended");
-      setIsRunning(false);
       recognitionRef.current = null;
+
+      // Chrome often stops recognition after a final result even with continuous=true.
+      // Auto-restart if user still wants transcription running.
+      if (wantRunningRef.current) {
+        log.voice("Auto-restarting transcription (user still wants it running)");
+        try {
+          const newRecognition = new SpeechRecognition();
+          newRecognition.continuous = true;
+          newRecognition.interimResults = true;
+          newRecognition.lang = "en-US";
+          newRecognition.maxAlternatives = 1;
+          newRecognition.onstart = recognition.onstart;
+          newRecognition.onresult = recognition.onresult;
+          newRecognition.onerror = recognition.onerror;
+          newRecognition.onend = recognition.onend;
+          recognitionRef.current = newRecognition;
+          newRecognition.start();
+        } catch (err) {
+          log.error("Auto-restart failed", err);
+          setIsRunning(false);
+        }
+      } else {
+        setIsRunning(false);
+      }
     };
 
     recognitionRef.current = recognition;
     recognition.start();
-  }, [isSupported, onPartial, onFinal, onError]);
+  }, [isSupported]);
 
   // ── Stop transcription ───────────────────────────────────────────────────
 
   const stopTranscription = useCallback(() => {
+    wantRunningRef.current = false; // prevent auto-restart in onend
+
     if (!recognitionRef.current) {
       log.voice("No active transcription to stop");
       return;
@@ -151,6 +186,7 @@ export function useVoiceTranscription(callbacks?: VoiceTranscriptionCallbacks) {
 
   useEffect(() => {
     return () => {
+      wantRunningRef.current = false;
       if (recognitionRef.current) {
         recognitionRef.current.stop();
         recognitionRef.current = null;

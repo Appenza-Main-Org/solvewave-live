@@ -158,12 +158,22 @@ export default function SessionPage() {
         ...(attachedImage && attachedPreview ? { imageUrl: attachedPreview } : {}),
       };
 
-      // If we have a partial transcript, finalize it
+      // If we have a tracked partial transcript index, finalize it
       if (partialTranscriptIndexRef.current !== null) {
         const updated = [...prev];
         updated[partialTranscriptIndexRef.current] = entry;
         partialTranscriptIndexRef.current = null;
         return updated;
+      }
+
+      // Fallback: scan backward for the last partial student entry and replace it
+      for (let i = prev.length - 1; i >= 0; i--) {
+        if (prev[i].role === "student" && prev[i].partial) {
+          const updated = [...prev];
+          updated[i] = entry;
+          partialTranscriptIndexRef.current = null;
+          return updated;
+        }
       }
 
       return [...prev, entry];
