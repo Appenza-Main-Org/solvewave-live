@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from pydantic import field_validator
+from pydantic import model_validator
 from functools import lru_cache
 
 
@@ -14,16 +14,15 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000"]
     log_level: str = "INFO"
 
-    @field_validator("gemini_api_key")
-    @classmethod
-    def validate_api_key(cls, v, info):
+    @model_validator(mode="after")
+    def validate_api_key_requirement(self):
         """Ensure API key is provided when not in stub mode."""
-        if not v and not info.data.get("gemini_stub", False):
+        if not self.gemini_api_key and not self.gemini_stub:
             raise ValueError(
                 "GEMINI_API_KEY is required when GEMINI_STUB is not true. "
                 "Either set GEMINI_API_KEY or set GEMINI_STUB=true for demo mode."
             )
-        return v
+        return self
 
     class Config:
         env_file = ".env"
