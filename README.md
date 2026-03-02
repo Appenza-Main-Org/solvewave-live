@@ -326,8 +326,11 @@ faheem-live-gemini/
 │   │   └── FOLDER_STRUCTURE.md      ← Project structure reference
 │   ├── content/                     ← Public content
 │   │   └── POST_DRAFT.md            ← Blog post draft (#GeminiLiveAgentChallenge)
-│   ├── ARCHITECTURE_DIAGRAM.md      ← Architecture description (text)
-│   └── architecture-diagram.png.md  ← Visual diagram placeholder
+│   ├── architecture/                ← Architecture diagrams and documentation
+│   │   ├── ARCHITECTURE_DIAGRAM.md  ← Architecture description (text)
+│   │   ├── ARCHITECTURE_MERMAID.md  ← Mermaid diagram source
+│   │   └── *.png                    ← Generated architecture diagrams
+│   └── architecture-diagram.png     ← Symlink to main architecture diagram
 │
 ├── scripts/
 │   ├── deploy.sh                    ← Automated deployment (Unix/macOS)
@@ -358,7 +361,8 @@ faheem-live-gemini/
         ├── components/              ← TranscriptPanel, ModeSelector, ExamplesPanel, HelpPanel
         ├── hooks/
         │   ├── useSessionSocket.ts  ← Primary hook (WS + audio + live state)
-        │   └── useVoiceTranscription.ts ← Web Speech API live captions
+        │   ├── useVoiceTranscription.ts ← Web Speech API live captions
+        │   └── useSessionTimer.ts   ← Session timer (elapsed time)
         └── lib/log.ts               ← Structured console logging
 ```
 
