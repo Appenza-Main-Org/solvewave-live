@@ -57,11 +57,11 @@ This project satisfies all requirements for the **Live Agents 🗣️** track:
 - [x] **Uses Google Cloud service** — Cloud Run (backend + frontend), Cloud Build
 
 ### ✅ What to Submit
-- [x] **Text description** with summary, technologies, data sources, findings → [SUBMISSION.md](SUBMISSION.md)
+- [x] **Text description** with summary, technologies, data sources, findings → [docs/submission/SUBMISSION.md](docs/submission/SUBMISSION.md)
 - [x] **Public code repository** with spin-up instructions (this README)
-- [x] **Proof of Google Cloud deployment** → [PROOF_OF_GCP.md](PROOF_OF_GCP.md)
+- [x] **Proof of Google Cloud deployment** → [docs/submission/PROOF_OF_GCP.md](docs/submission/PROOF_OF_GCP.md)
 - [x] **Architecture diagram** → [docs/architecture-diagram.png](docs/architecture-diagram.png)
-- [x] **Demo video** under 4 minutes → [demo-script.md](demo-script.md), [DEMO_CHECKLIST.md](DEMO_CHECKLIST.md)
+- [x] **Demo video** under 4 minutes → [docs/demo/demo-script.md](docs/demo/demo-script.md), [docs/demo/DEMO_CHECKLIST.md](docs/demo/DEMO_CHECKLIST.md)
 
 ### ✅ Rules Compliance
 - [x] **Testing access provided** — Free demo mode + deployed app (no restrictions)
@@ -71,7 +71,7 @@ This project satisfies all requirements for the **Live Agents 🗣️** track:
 ### ✅ Bonus Points
 - [x] **Automated deployment scripts** → [scripts/deploy.sh](scripts/deploy.sh), [scripts/deploy.ps1](scripts/deploy.ps1)
 - [x] **Content with #GeminiLiveAgentChallenge** → [docs/content/POST_DRAFT.md](docs/content/POST_DRAFT.md)
-- [x] **GDG profile URL field** → Add in [SUBMISSION.md](SUBMISSION.md)
+- [x] **GDG profile URL field** → Add in [docs/submission/SUBMISSION.md](docs/submission/SUBMISSION.md)
 
 ---
 
@@ -129,7 +129,7 @@ npm run dev
 2. Follow [Local Development](#local-development) instructions below
 3. Set `GEMINI_API_KEY` in `backend/.env`
 
-**Questions?** See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed setup instructions.
+**Questions?** See [docs/submission/DEPLOYMENT.md](docs/submission/DEPLOYMENT.md) for detailed setup instructions.
 
 ---
 
@@ -289,7 +289,7 @@ These scripts deploy both backend and frontend to Cloud Run automatically.
 
 ### Manual Deployment
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed step-by-step instructions, including:
+See [docs/submission/DEPLOYMENT.md](docs/submission/DEPLOYMENT.md) for detailed step-by-step instructions, including:
 - Prerequisites and gcloud setup
 - Backend deployment with environment variables
 - Frontend deployment with WebSocket URL configuration
@@ -309,17 +309,25 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed step-by-step instructions, inclu
 ```
 faheem-live-gemini/
 ├── README.md                        ← You are here
-├── SUBMISSION.md                    ← Devpost submission template
-├── DEPLOYMENT.md                    ← Cloud Run deployment guide
-├── PROOF_OF_GCP.md                  ← Evidence of Google Cloud usage
-├── DEMO_CHECKLIST.md                ← 4-minute demo preparation checklist
-├── demo-script.md                   ← Narrated demo script
 ├── CLAUDE.md                        ← Project instructions (dev reference)
 │
-├── docs/
-│   ├── architecture-diagram.png     ← Visual architecture diagram
-│   └── content/
-│       └── POST_DRAFT.md            ← Blog post draft (#GeminiLiveAgentChallenge)
+├── docs/                            ← All documentation (see docs/README.md)
+│   ├── README.md                    ← Documentation index
+│   ├── submission/                  ← Devpost submission documents
+│   │   ├── SUBMISSION.md            ← Devpost submission template
+│   │   ├── DEPLOYMENT.md            ← Cloud Run deployment guide
+│   │   └── PROOF_OF_GCP.md          ← Evidence of Google Cloud usage
+│   ├── demo/                        ← Demo video resources
+│   │   ├── demo-script.md           ← Narrated 4-minute demo script
+│   │   └── DEMO_CHECKLIST.md        ← Demo preparation checklist
+│   ├── development/                 ← Dev reference docs
+│   │   ├── FINAL_STEPS.md           ← Complete to-do guide for submission
+│   │   ├── IMPLEMENTATION_SUMMARY.md ← Full changelog
+│   │   └── FOLDER_STRUCTURE.md      ← Project structure reference
+│   ├── content/                     ← Public content
+│   │   └── POST_DRAFT.md            ← Blog post draft (#GeminiLiveAgentChallenge)
+│   ├── ARCHITECTURE_DIAGRAM.md      ← Architecture description (text)
+│   └── architecture-diagram.png.md  ← Visual diagram placeholder
 │
 ├── scripts/
 │   ├── deploy.sh                    ← Automated deployment (Unix/macOS)
@@ -358,14 +366,19 @@ faheem-live-gemini/
 
 ## Documentation
 
+**📋 See [docs/README.md](docs/README.md) for the complete documentation index.**
+
+### Quick Links
+
 | Document | Purpose |
 |----------|---------|
 | [README.md](README.md) | Project overview, setup instructions, testing access (this file) |
-| [SUBMISSION.md](SUBMISSION.md) | Devpost submission template with all required fields |
-| [DEPLOYMENT.md](DEPLOYMENT.md) | Step-by-step Cloud Run deployment guide |
-| [PROOF_OF_GCP.md](PROOF_OF_GCP.md) | Evidence of Google Cloud usage (code references + endpoints) |
-| [demo-script.md](demo-script.md) | Narrated 4-minute demo script |
-| [DEMO_CHECKLIST.md](DEMO_CHECKLIST.md) | Pre-demo setup and recording checklist |
+| [docs/submission/SUBMISSION.md](docs/submission/SUBMISSION.md) | Devpost submission template with all required fields |
+| [docs/submission/DEPLOYMENT.md](docs/submission/DEPLOYMENT.md) | Step-by-step Cloud Run deployment guide |
+| [docs/submission/PROOF_OF_GCP.md](docs/submission/PROOF_OF_GCP.md) | Evidence of Google Cloud usage (code references + endpoints) |
+| [docs/demo/demo-script.md](docs/demo/demo-script.md) | Narrated 4-minute demo script |
+| [docs/demo/DEMO_CHECKLIST.md](docs/demo/DEMO_CHECKLIST.md) | Pre-demo setup and recording checklist |
+| [docs/development/FINAL_STEPS.md](docs/development/FINAL_STEPS.md) | Complete step-by-step guide to submission |
 | [docs/content/POST_DRAFT.md](docs/content/POST_DRAFT.md) | Blog post draft with #GeminiLiveAgentChallenge |
 | [docs/architecture-diagram.png](docs/architecture-diagram.png) | Visual architecture diagram |
 
