@@ -3,7 +3,7 @@ import "katex/dist/katex.min.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Faheem — Live Math Tutor",
+  title: "Faheem Math AI Tutor — Live Math Tutoring",
   description: "Real-time math tutoring powered by Gemini Live",
 };
 

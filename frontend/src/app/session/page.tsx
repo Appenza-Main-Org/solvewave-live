@@ -86,6 +86,7 @@ export default function SessionPage() {
     sendText,
     sendTextQuiet,
     sendImage,
+    sendImageQuiet,
     startVoice,
     stopVoice,
   } = useSessionSocket();
@@ -98,10 +99,16 @@ export default function SessionPage() {
   // Refs to avoid stale closures in voice transcription callbacks
   const sendTextQuietRef = useRef(sendTextQuiet);
   sendTextQuietRef.current = sendTextQuiet;
+  const sendImageQuietRef = useRef(sendImageQuiet);
+  sendImageQuietRef.current = sendImageQuiet;
   const modeRef = useRef(mode);
   modeRef.current = mode;
   const isActiveRef = useRef(isActive);
   isActiveRef.current = isActive;
+  const imageFileRef = useRef(imageFile);
+  imageFileRef.current = imageFile;
+  const imagePreviewRef = useRef(imagePreview);
+  imagePreviewRef.current = imagePreview;
 
   // ── Voice transcription callbacks ─────────────────────────────────────────
 
@@ -139,36 +146,40 @@ export default function SessionPage() {
     if (!text.trim()) return;
 
     const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const attachedImage = imageFileRef.current;
+    const attachedPreview = imagePreviewRef.current;
 
     setTranscript((prev) => {
+      const entry = {
+        role: "student" as const,
+        text,
+        timestamp: now,
+        partial: false,
+        ...(attachedImage && attachedPreview ? { imageUrl: attachedPreview } : {}),
+      };
+
       // If we have a partial transcript, finalize it
       if (partialTranscriptIndexRef.current !== null) {
         const updated = [...prev];
-        updated[partialTranscriptIndexRef.current] = {
-          role: "student",
-          text,
-          timestamp: now,
-          partial: false,
-        };
+        updated[partialTranscriptIndexRef.current] = entry;
         partialTranscriptIndexRef.current = null;
         return updated;
       }
 
-      // Otherwise, add a new final transcript row
-      return [
-        ...prev,
-        {
-          role: "student" as const,
-          text,
-          timestamp: now,
-          partial: false,
-        },
-      ];
+      return [...prev, entry];
     });
 
     // Send final transcript to backend so Gemini responds to it
     if (isActiveRef.current) {
-      sendTextQuietRef.current(text, modeRef.current);
+      if (attachedImage) {
+        // Send image with voice text as caption
+        sendImageQuietRef.current(attachedImage, text, modeRef.current);
+        // Clear attached image (don't revoke — it's now in transcript)
+        setImageFile(null);
+        setImagePreview(null);
+      } else {
+        sendTextQuietRef.current(text, modeRef.current);
+      }
     }
   }, [setTranscript]);
 
@@ -269,7 +280,7 @@ export default function SessionPage() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-screen bg-slate-950 overflow-hidden">
+    <div className="flex flex-col h-dvh bg-slate-950 overflow-hidden">
 
       {/* ── Header ────────────────────────────────────────────────────────── */}
       <header className="flex-none flex items-center gap-4 px-5 h-16 border-b border-slate-800/60 bg-slate-950/95 backdrop-blur z-10">
@@ -281,7 +292,7 @@ export default function SessionPage() {
           </div>
           <div className="flex flex-col">
             <span className="font-semibold text-sm tracking-tight text-slate-200">
-              Faheem <span className="text-emerald-400">Math</span>
+              Faheem <span className="text-emerald-400">Math</span> <span className="text-slate-400 font-normal">AI Tutor</span>
             </span>
             <span className="text-[11px] text-slate-500 leading-tight">
               Live math tutor
@@ -341,68 +352,21 @@ export default function SessionPage() {
       </header>
 
       {/* ── Main layout: transcript + side panel ───────────────────────────── */}
-      <main className="flex-1 overflow-hidden px-4 py-3 lg:px-6 lg:py-4">
+      <main className="flex-1 min-h-0 overflow-hidden px-4 py-3 lg:px-6 lg:py-4">
         <div className="h-full flex flex-col lg:flex-row gap-4 lg:gap-5">
 
           {/* Primary: transcript / live tutoring surface */}
-          <section className="flex-1 min-w-0 flex flex-col gap-3">
-            <div className="flex-1 rounded-2xl bg-slate-900/70 border border-slate-800/70 shadow-[0_0_0_1px_rgba(15,23,42,0.9)] overflow-hidden">
+          <section className="flex-1 min-h-0 min-w-0">
+            <div className="h-full rounded-2xl bg-slate-900/70 border border-slate-800/70 shadow-[0_0_0_1px_rgba(15,23,42,0.9)] overflow-hidden">
               <TranscriptPanel
                 entries={transcript}
                 isThinking={isThinking && isActive}
               />
             </div>
-
-            {/* Live voice / state strip */}
-            <div
-              className={`
-                flex items-center gap-3 px-3.5 py-2.5 rounded-2xl text-xs
-                border bg-slate-950/80
-                ${
-                  liveState === "error"
-                    ? "border-red-500/60 text-red-100 bg-red-950/40"
-                    : liveState === "interrupted"
-                    ? "border-orange-500/60 text-orange-50 bg-slate-950/80"
-                    : "border-slate-800 text-slate-300"
-                }
-              `}
-            >
-              <div className="flex items-center gap-1.5">
-                <span
-                  className={`
-                    w-2 h-2 rounded-full ${state.dot}
-                    ${state.pulse ? "animate-pulse" : ""}
-                  `}
-                />
-                <span className="text-[11px] font-semibold uppercase tracking-[0.16em]">
-                  {LIVE_STRIP_COPY[liveState].title}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] text-slate-400 truncate">
-                  {LIVE_STRIP_COPY[liveState].body}
-                </p>
-              </div>
-              {voiceActive && liveState !== "error" && (
-                <div className="flex items-end gap-[3px] h-6">
-                  {[1, 2, 3, 4].map((b) => (
-                    <div
-                      // eslint-disable-next-line react/no-array-index-key
-                      key={b}
-                      className="w-1 rounded-full bg-emerald-400/80 animate-[bounce_1.1s_ease-in-out_infinite]"
-                      style={{
-                        height: `${6 + b * 4}px`,
-                        animationDelay: `${b * 90}ms`,
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
           </section>
 
-          {/* Secondary: contextual side panel */}
-          <aside className="w-full lg:w-80 flex-none flex flex-col gap-3 lg:gap-4 mt-3 lg:mt-0">
+          {/* Secondary: contextual side panel (hidden on mobile) */}
+          <aside className="hidden lg:flex w-80 flex-none flex-col gap-4">
             {/* Examples panel */}
             <ExamplesPanel
               mode={mode}
@@ -463,7 +427,54 @@ export default function SessionPage() {
         </div>
       </main>
 
-      {/* ── Composer bar ────────────────────────────────────────────────────── */}
+      {/* ── Live voice / state strip (pinned above composer) ──────────────── */}
+      <div
+        className={`
+          flex-none flex items-center gap-3 mx-4 mb-1 px-3.5 py-2 rounded-2xl text-xs
+          border bg-slate-950/80
+          ${
+            liveState === "error"
+              ? "border-red-500/60 text-red-100 bg-red-950/40"
+              : liveState === "interrupted"
+              ? "border-orange-500/60 text-orange-50 bg-slate-950/80"
+              : "border-slate-800 text-slate-300"
+          }
+        `}
+      >
+        <div className="flex items-center gap-1.5">
+          <span
+            className={`
+              w-2 h-2 rounded-full ${state.dot}
+              ${state.pulse ? "animate-pulse" : ""}
+            `}
+          />
+          <span className="text-[11px] font-semibold uppercase tracking-[0.16em]">
+            {LIVE_STRIP_COPY[liveState].title}
+          </span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] text-slate-400 truncate">
+            {LIVE_STRIP_COPY[liveState].body}
+          </p>
+        </div>
+        {voiceActive && liveState !== "error" && (
+          <div className="flex items-end gap-[3px] h-6">
+            {[1, 2, 3, 4].map((b) => (
+              <div
+                // eslint-disable-next-line react/no-array-index-key
+                key={b}
+                className="w-1 rounded-full bg-emerald-400/80 animate-[bounce_1.1s_ease-in-out_infinite]"
+                style={{
+                  height: `${6 + b * 4}px`,
+                  animationDelay: `${b * 90}ms`,
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Composer bar (pinned to bottom) ────────────────────────────────── */}
       <div className="flex-none flex items-end gap-2 px-4 py-3 border-t border-slate-800/60 bg-slate-950">
 
         {/* Attach image */}

@@ -424,6 +424,38 @@ export function useSessionSocket() {
     [append]
   );
 
+  /** Send image to backend without appending to transcript (used by voice + image combo). */
+  const sendImageQuiet = useCallback(
+    async (file: File, caption: string, mode: TutorMode = "explain") => {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        log.error("sendImageQuiet called but WS not open");
+        return;
+      }
+
+      log.image("sendImageQuiet (voice+image)", { caption: caption.slice(0, 80), mode });
+      setIsThinking(true);
+      setLastSentType("image");
+
+      try {
+        const base64 = await fileToBase64(file);
+        ws.send(
+          JSON.stringify({
+            type: "image",
+            mimeType: file.type,
+            data: base64,
+            caption,
+            mode,
+          })
+        );
+      } catch (err) {
+        log.error("sendImageQuiet fileToBase64 failed", err);
+        setIsThinking(false);
+      }
+    },
+    []
+  );
+
   return {
     status,
     isActive: status === "connected",
@@ -437,6 +469,7 @@ export function useSessionSocket() {
     sendText,
     sendTextQuiet,
     sendImage,
+    sendImageQuiet,
     startVoice,
     stopVoice,
   };
