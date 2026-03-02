@@ -212,10 +212,14 @@ class TutorAgent:
 
     # ── Recap ──────────────────────────────────────────────────────────────────
 
-    def build_recap(self, config: SessionConfig) -> SessionRecap:
+    def build_recap(self, config: SessionConfig, duration_seconds: float = 0.0) -> SessionRecap:
         """
         Build an end-of-session recap from accumulated tool-call events.
         Called by session_manager after the audio bridge closes.
+
+        Args:
+            config: Session configuration
+            duration_seconds: Total session duration in seconds
         """
         topics = list(
             {
@@ -240,13 +244,19 @@ class TutorAgent:
 
         score = max(0.0, round(1.0 - len(mistakes) * 0.1, 2))
 
+        # Format duration as mm:ss for summary
+        minutes = int(duration_seconds // 60)
+        seconds = int(duration_seconds % 60)
+        duration_str = f"{minutes}:{seconds:02d}"
+
         topics_str = f" Topics: {', '.join(topics)}." if topics else ""
         mistakes_str = f" Mistakes: {len(mistakes)}." if mistakes else ""
-        summary = f"Math session complete.{topics_str}{mistakes_str}"
+        duration_line = f" Duration: {duration_str}."
+        summary = f"Math session complete.{topics_str}{mistakes_str}{duration_line}"
 
         return SessionRecap(
             session_id=config.session_id,
-            duration_seconds=0.0,
+            duration_seconds=duration_seconds,
             topics_covered=[t for t in topics if t],
             mistakes=mistakes,
             corrections=corrections,

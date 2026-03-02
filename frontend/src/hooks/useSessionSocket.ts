@@ -413,6 +413,7 @@ export function useSessionSocket() {
     liveState,
     voiceActive,
     transcript,
+    setTranscript,
     startSession,
     stopSession,
     sendText,

@@ -7,6 +7,7 @@ export interface TranscriptEntry {
   text: string;
   timestamp: string;
   imageUrl?: string;
+  partial?: boolean; // true = still being transcribed (Web Speech API interim result)
 }
 
 interface TranscriptPanelProps {
@@ -89,6 +90,7 @@ export default function TranscriptPanel({
       {entries.map((e, i) => {
         const isRecap =
           e.role === "tutor" && e.text.trim().startsWith("✓");
+        const isPartial = e.partial === true;
 
         return (
           <div
@@ -124,12 +126,19 @@ export default function TranscriptPanel({
                     Recap
                   </span>
                 )}
+                {isPartial && (
+                  <span className="text-[10px] text-slate-500 italic">
+                    listening…
+                  </span>
+                )}
               </div>
               <div
                 className={`
                   px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm
                   ${
-                    isRecap
+                    isPartial
+                      ? "bg-emerald-700/10 text-emerald-100/70 italic rounded-tr-lg border border-emerald-700/30"
+                      : isRecap
                       ? "bg-slate-900 text-slate-100 border border-emerald-600/70"
                       : e.role === "tutor"
                       ? "bg-slate-800/95 text-slate-100 rounded-tl-lg border border-slate-700/60"

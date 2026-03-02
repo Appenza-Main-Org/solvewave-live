@@ -26,6 +26,7 @@ WebSocket message protocol:
 import asyncio
 import json
 import logging
+import time
 import traceback
 
 from fastapi import WebSocket, WebSocketDisconnect
@@ -70,6 +71,7 @@ async def handle_session(websocket: WebSocket) -> None:
     await websocket.accept()
 
     config = SessionConfig()
+    session_start_time = time.time()
     logger.info("%s[session] created session_id=%s", _LOG, config.session_id)
 
     await websocket.send_json(
@@ -251,10 +253,11 @@ async def handle_session(websocket: WebSocket) -> None:
 
     # ── Session recap ──────────────────────────────────────────────────────────
 
-    recap = agent.build_recap(config)
+    session_duration = time.time() - session_start_time
+    recap = agent.build_recap(config, duration_seconds=session_duration)
     try:
         await websocket.send_json({"type": "recap", "data": recap.model_dump()})
     except Exception:
         pass
 
-    logger.info("%s[session] ended session_id=%s", _LOG, config.session_id)
+    logger.info("%s[session] ended session_id=%s duration=%.1fs", _LOG, config.session_id, session_duration)

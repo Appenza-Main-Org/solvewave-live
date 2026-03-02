@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSessionSocket, LiveState } from "@/hooks/useSessionSocket";
+import { useVoiceTranscription } from "@/hooks/useVoiceTranscription";
+import { useSessionTimer } from "@/hooks/useSessionTimer";
 import TranscriptPanel from "@/components/TranscriptPanel";
 import ModeSelector, { type TutorMode } from "@/components/ModeSelector";
+import ExamplesPanel from "@/components/ExamplesPanel";
+import HelpPanel from "@/components/HelpPanel";
 import { log } from "@/lib/log";
 
 // ── Live state indicator ────────────────────────────────────────────────────
@@ -64,8 +68,10 @@ export default function SessionPage() {
   const [imageFile, setImageFile]     = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [text, setText]               = useState("");
+  const [helpPanelOpen, setHelpPanelOpen] = useState(false);
   const fileInputRef      = useRef<HTMLInputElement>(null);
   const autoVoiceRef      = useRef(false);   // set true when Start auto-triggers voice
+  const partialTranscriptIndexRef = useRef<number | null>(null);
 
   const {
     status,
@@ -74,6 +80,7 @@ export default function SessionPage() {
     liveState,
     voiceActive,
     transcript,
+    setTranscript,
     startSession,
     stopSession,
     sendText,
@@ -82,38 +89,105 @@ export default function SessionPage() {
     stopVoice,
   } = useSessionSocket();
 
+  const { formatted: timerDisplay } = useSessionTimer(isActive);
+
   const state   = STATE_CONFIG[liveState];
   const canSend = isActive && (imageFile !== null || text.trim().length > 0);
 
-  const modeSuggestions: string[] =
-    mode === "quiz"
-      ? [
-          "Quiz me on solving 3x + 5 = 14",
-          "Ask me questions about derivatives",
-          "Give me a quick fraction checkpoint",
-          "Give me a 3-question algebra quiz",
-        ]
-      : mode === "homework"
-      ? [
-          "Walk through this homework sheet with me",
-          "Help me start this word problem",
-          "Check my steps on this worksheet",
-          "Summarize my homework at the end",
-        ]
-      : [
-          "Explain how to solve 3x + 5 = 14",
-          "Explain what a derivative means",
-          "Explain why my fraction answer is wrong",
-          "Explain this homework question from a photo",
-        ];
+  // ── Voice transcription callbacks ─────────────────────────────────────────
 
-  // ── Auto-start voice once session is live ──────────────────────────────────
+  const onPartialTranscript = useCallback((text: string) => {
+    if (!text.trim()) return;
+
+    setTranscript((prev) => {
+      const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+      // If we already have a partial transcript, update it in place
+      if (partialTranscriptIndexRef.current !== null) {
+        const updated = [...prev];
+        updated[partialTranscriptIndexRef.current] = {
+          role: "student",
+          text,
+          timestamp: now,
+          partial: true,
+        };
+        return updated;
+      }
+
+      // Otherwise, add a new partial transcript row
+      const newEntry = {
+        role: "student" as const,
+        text,
+        timestamp: now,
+        partial: true,
+      };
+      partialTranscriptIndexRef.current = prev.length;
+      return [...prev, newEntry];
+    });
+  }, [setTranscript]);
+
+  const onFinalTranscript = useCallback((text: string) => {
+    if (!text.trim()) return;
+
+    const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+    setTranscript((prev) => {
+      // If we have a partial transcript, finalize it
+      if (partialTranscriptIndexRef.current !== null) {
+        const updated = [...prev];
+        updated[partialTranscriptIndexRef.current] = {
+          role: "student",
+          text,
+          timestamp: now,
+          partial: false,
+        };
+        partialTranscriptIndexRef.current = null;
+        return updated;
+      }
+
+      // Otherwise, add a new final transcript row
+      return [
+        ...prev,
+        {
+          role: "student" as const,
+          text,
+          timestamp: now,
+          partial: false,
+        },
+      ];
+    });
+
+    // Optional: send final transcript to backend so Gemini sees it in context
+    // (Uncomment if you want voice captions sent to the tutor)
+    // if (isActive) {
+    //   sendText(text, mode);
+    // }
+  }, [setTranscript]);
+
+  const { isSupported: transcriptionSupported, isRunning: transcriptionRunning, startTranscription, stopTranscription } =
+    useVoiceTranscription({
+      onPartial: onPartialTranscript,
+      onFinal: onFinalTranscript,
+    });
+
+  // ── Auto-start voice + transcription once session is live ─────────────────
   useEffect(() => {
     if (liveState === "connected" && autoVoiceRef.current) {
       autoVoiceRef.current = false;
       startVoice();
+      if (transcriptionSupported) {
+        startTranscription();
+      }
     }
-  }, [liveState, startVoice]);
+  }, [liveState, startVoice, transcriptionSupported, startTranscription]);
+
+  // ── Stop transcription when voice stops ───────────────────────────────────
+  useEffect(() => {
+    if (!voiceActive && transcriptionRunning) {
+      stopTranscription();
+      partialTranscriptIndexRef.current = null;
+    }
+  }, [voiceActive, transcriptionRunning, stopTranscription]);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
@@ -165,10 +239,23 @@ export default function SessionPage() {
     if (voiceActive) {
       log.voice("User stopped voice");
       stopVoice();
+      if (transcriptionRunning) {
+        stopTranscription();
+      }
     } else {
       log.voice("User started voice");
       startVoice();
+      if (transcriptionSupported) {
+        startTranscription();
+      }
     }
+  }
+
+  function handleExampleClick(exampleText: string) {
+    setText(exampleText);
+    // Focus the textarea (if it exists)
+    const textarea = document.querySelector<HTMLTextAreaElement>('textarea');
+    textarea?.focus();
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -189,7 +276,7 @@ export default function SessionPage() {
               Faheem <span className="text-emerald-400">Math</span>
             </span>
             <span className="text-[11px] text-slate-500 leading-tight">
-              Live bilingual math tutor
+              Live math tutor
             </span>
           </div>
         </div>
@@ -199,14 +286,27 @@ export default function SessionPage() {
           <ModeSelector selected={mode} onChange={handleModeChange} />
         </div>
 
-        {/* Live state + session controls */}
+        {/* Session timer + Live state + session controls */}
         <div className="flex items-center gap-3 shrink-0">
+          {isActive && (
+            <div className="px-3 py-1.5 rounded-full bg-slate-900/90 border border-slate-800 text-xs text-slate-300 font-mono">
+              {timerDisplay}
+            </div>
+          )}
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/90 border border-slate-800">
             <span
               className={`w-2 h-2 rounded-full shrink-0 ${state.dot} ${state.pulse ? "animate-pulse" : ""}`}
             />
             <span className="text-xs text-slate-300 font-medium">{state.label}</span>
           </div>
+          <button
+            onClick={() => setHelpPanelOpen(true)}
+            className="flex-none w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-slate-200 transition-colors text-sm"
+            title="Help & About"
+            type="button"
+          >
+            ?
+          </button>
           <button
             onClick={() => {
               if (isActive) {
@@ -295,26 +395,12 @@ export default function SessionPage() {
 
           {/* Secondary: contextual side panel */}
           <aside className="w-full lg:w-80 flex-none flex flex-col gap-3 lg:gap-4 mt-3 lg:mt-0">
-            {/* Current problem context */}
-            <div className="rounded-2xl bg-slate-900/80 border border-slate-800/70 px-4 py-3">
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <div className="flex flex-col">
-                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-                    Current mode
-                  </span>
-                  <span className="text-sm font-semibold text-slate-100">
-                    {mode === "explain"
-                      ? "Explain — step-by-step coaching"
-                      : mode === "quiz"
-                      ? "Quiz — check my understanding"
-                      : "Homework — help me solve & recap"}
-                  </span>
-                </div>
-              </div>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Tell Faheem what you are working on, or snap a photo of your math problem. He will adapt his style to the selected mode.
-              </p>
-            </div>
+            {/* Examples panel */}
+            <ExamplesPanel
+              mode={mode}
+              onExampleClick={handleExampleClick}
+              disabled={!isActive}
+            />
 
             {/* Image / attachment card */}
             <div className="rounded-2xl bg-slate-900/80 border border-slate-800/70 px-4 py-3">
@@ -364,23 +450,6 @@ export default function SessionPage() {
                   </p>
                 </div>
               )}
-            </div>
-
-            {/* Quick hints (mode-aware) */}
-            <div className="rounded-2xl bg-slate-900/80 border border-slate-800/70 px-4 py-3">
-              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-                Try asking in {mode === "explain" ? "Explain" : mode === "quiz" ? "Quiz" : "Homework"} mode
-              </span>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {modeSuggestions.map((s) => (
-                  <span
-                    key={s}
-                    className="px-2.5 py-1 rounded-full bg-slate-800/80 text-[11px] text-slate-200"
-                  >
-                    {s}
-                  </span>
-                ))}
-              </div>
             </div>
           </aside>
         </div>
@@ -476,6 +545,15 @@ export default function SessionPage() {
           ↑
         </button>
       </div>
+
+      {/* ── Help Panel (modal) ──────────────────────────────────────────────── */}
+      <HelpPanel
+        isOpen={helpPanelOpen}
+        onClose={() => setHelpPanelOpen(false)}
+        sessionStatus={status}
+        voiceActive={voiceActive}
+        stubMode={false}
+      />
 
     </div>
   );
