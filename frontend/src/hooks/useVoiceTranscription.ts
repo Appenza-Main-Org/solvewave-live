@@ -3,6 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { log } from "@/lib/log";
 
+// Web Speech API types (not included in default TS lib)
+type SpeechRecognitionType = typeof window extends { SpeechRecognition: infer T }
+  ? T
+  : any;
+
 /**
  * useVoiceTranscription — Web Speech API hook for live voice transcription
  *
@@ -30,7 +35,8 @@ export function useVoiceTranscription(callbacks?: VoiceTranscriptionCallbacks) {
   const [isSupported, setIsSupported] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
 
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
   const { onPartial, onFinal, onError } = callbacks || {};
 
   // ── Check browser support on mount ───────────────────────────────────────
@@ -78,7 +84,7 @@ export function useVoiceTranscription(callbacks?: VoiceTranscriptionCallbacks) {
       setIsRunning(true);
     };
 
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    recognition.onresult = (event: any) => {
       // event.results is a SpeechRecognitionResultList
       // Each result can be interim (partial) or final
       for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -95,7 +101,7 @@ export function useVoiceTranscription(callbacks?: VoiceTranscriptionCallbacks) {
       }
     };
 
-    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+    recognition.onerror = (event: any) => {
       log.error("Speech recognition error", event.error);
 
       // Common errors:
