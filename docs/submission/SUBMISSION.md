@@ -2,9 +2,9 @@
 
 **Hackathon:** Google Gemini Live Agent Challenge
 **Track:** Live Agents 🗣️
-**Submitted by:** [Your Name]
-**GDG Profile:** [Your GDG Profile URL] _(optional, for +0.2 bonus points)_
-**Demo Video:** [YouTube/Loom URL - under 4 minutes]
+**Submitted by:** Mohamed Ghareeb
+**GDG Profile:** _(optional, for +0.2 bonus points)_
+**Demo Video:** _(add YouTube/Loom URL here after recording — under 4 minutes)_
 
 ---
 
@@ -143,10 +143,10 @@ See [docs/architecture-diagram.png](docs/architecture-diagram.png) for a visual 
 
 ### ✅ What to Submit
 - [x] Text description with summary, technologies, data sources, findings (this file)
-- [x] Public code repository with spin-up instructions ([GitHub repo link])
+- [x] Public code repository with spin-up instructions ([GitHub](https://github.com/Appenza-Main-Org/faheem-live-competition))
 - [x] Proof of Google Cloud deployment (see [PROOF_OF_GCP.md](PROOF_OF_GCP.md))
 - [x] Architecture diagram (see [docs/architecture-diagram.png](docs/architecture-diagram.png))
-- [x] Demo video under 4 minutes showing multimodal/agentic features ([Video URL])
+- [x] Demo video under 4 minutes showing multimodal/agentic features _(add URL after recording)_
 
 ### ✅ Rules Compliance
 - [x] Testing access provided (stub mode + free deployment instructions in README)
@@ -155,14 +155,16 @@ See [docs/architecture-diagram.png](docs/architecture-diagram.png) for a visual 
 
 ### ✅ Bonus Points
 - [x] Automated cloud deployment scripts ([scripts/deploy.sh](scripts/deploy.sh), [scripts/deploy.ps1](scripts/deploy.ps1))
-- [x] Content published with #GeminiLiveAgentChallenge (see [docs/content/POST_DRAFT.md](docs/content/POST_DRAFT.md))
+- [x] Content published with #GeminiLiveAgentChallenge:
+  - [Medium](https://medium.com/@ghareeb_45146/i-built-a-live-ai-math-tutor-you-can-interrupt-mid-sentence-b2a48c59403b)
+  - [Dev.to](https://dev.to/mohamed_ghareeb_d1dab4200/i-built-a-live-ai-math-tutor-you-can-interrupt-mid-sentence-290d)
 - [ ] GDG membership profile URL (add above if applicable)
 
 ---
 
 ## Repository
 
-**GitHub:** [Your GitHub repo URL]
+**GitHub:** https://github.com/Appenza-Main-Org/faheem-live-competition
 **Live Demo:** https://faheem-math-frontend-872506223416.us-central1.run.app
 **Backend API:** https://faheem-math-backend-872506223416.us-central1.run.app
 
@@ -212,5 +214,5 @@ MIT
 
 ---
 
-**Last updated:** 2026-03-02
+**Last updated:** 2026-03-03
 **Submission prepared for:** Google Gemini Live Agent Challenge (Live Agents Track)

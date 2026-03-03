@@ -70,8 +70,8 @@ This project satisfies all requirements for the **Live Agents 🗣️** track:
 
 ### ✅ Bonus Points
 - [x] **Automated deployment scripts** → [scripts/deploy.sh](scripts/deploy.sh), [scripts/deploy.ps1](scripts/deploy.ps1)
-- [x] **Content with #GeminiLiveAgentChallenge** → [docs/content/POST_DRAFT.md](docs/content/POST_DRAFT.md)
-- [x] **GDG profile URL field** → Add in [docs/submission/SUBMISSION.md](docs/submission/SUBMISSION.md)
+- [x] **Content with #GeminiLiveAgentChallenge** → [Medium](https://medium.com/@ghareeb_45146/i-built-a-live-ai-math-tutor-you-can-interrupt-mid-sentence-b2a48c59403b) | [Dev.to](https://dev.to/mohamed_ghareeb_d1dab4200/i-built-a-live-ai-math-tutor-you-can-interrupt-mid-sentence-290d)
+- [ ] **GDG profile URL** → Add in [docs/submission/SUBMISSION.md](docs/submission/SUBMISSION.md) if applicable
 
 ---
 
@@ -177,21 +177,6 @@ npm run dev
 - `asyncio.Queue` decouples WebSocket receive from Gemini Live upstream (prevents backpressure)
 - Two concurrent tasks: upstream (mic → Gemini) + downstream (Gemini → browser)
 - Mode addendums injected at runtime (explain/quiz/homework) without changing base system prompt
-
----
-
-## Architecture
-
-```
-Browser (Next.js)
-  │  binary PCM frames (mic → speaker)
-  │  JSON frames (text / image / control)
-  ▼
-FastAPI  /ws/session  (single WebSocket)
-  ├─ text  → LiveClient.generate_text_reply  → Gemini text API
-  ├─ image → LiveClient.generate_image_reply → Gemini multimodal API
-  └─ audio → LiveClient.run                 → Gemini Live API (bidirectional)
-```
 
 ---
 
@@ -383,7 +368,7 @@ faheem-live-gemini/
 | [docs/demo/demo-script.md](docs/demo/demo-script.md) | Narrated 4-minute demo script |
 | [docs/demo/DEMO_CHECKLIST.md](docs/demo/DEMO_CHECKLIST.md) | Pre-demo setup and recording checklist |
 | [docs/development/FINAL_STEPS.md](docs/development/FINAL_STEPS.md) | Complete step-by-step guide to submission |
-| [docs/content/POST_DRAFT.md](docs/content/POST_DRAFT.md) | Blog post draft with #GeminiLiveAgentChallenge |
+| [docs/content/POST_DRAFT.md](docs/content/POST_DRAFT.md) | Blog post source — published on [Medium](https://medium.com/@ghareeb_45146/i-built-a-live-ai-math-tutor-you-can-interrupt-mid-sentence-b2a48c59403b) and [Dev.to](https://dev.to/mohamed_ghareeb_d1dab4200/i-built-a-live-ai-math-tutor-you-can-interrupt-mid-sentence-290d) |
 | [docs/architecture-diagram.png](docs/architecture-diagram.png) | Visual architecture diagram |
 
 ---
@@ -406,4 +391,4 @@ Powered by:
 
 ---
 
-**Last updated:** 2026-03-02
+**Last updated:** 2026-03-03
