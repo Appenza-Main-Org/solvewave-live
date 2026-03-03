@@ -1,188 +1,199 @@
 # Demo Script — Faheem Math (4-Minute Live Demo)
 
-**Duration:** Under 4 minutes
+**Duration:** 3:50 (10-second buffer under the 4-minute limit)
 **Audience:** Gemini Live Agent Challenge judges
-**Goal:** Demonstrate all multimodal features, live agent capabilities, and challenge requirements
+**Goal:** Hit all three judging criteria — Innovation & Multimodal UX (40%), Technical Implementation (30%), Demo & Presentation (30%)
 
 ---
 
 ## Script
 
-### [0:00–0:20] Introduction
+### [0:00–0:15] Hook — The Problem (15 seconds)
 
-**[Show landing page / session page before starting]**
+**[Show the session page, idle state. Camera/mic off. Just the clean UI.]**
 
-> "Hi! This is **Faheem Math**, a live AI math tutor I built for the Gemini Live Agent Challenge.
+> "Most AI tutoring tools are just glorified chat boxes — you type a question, wait, get a wall of text. That's not how real tutoring works.
 >
-> It's a real-time, voice-first tutor that uses Gemini's Live API to provide instant, step-by-step math explanations.
->
-> Students can speak a problem, upload a photo of homework, or type a question — and Faheem responds immediately.
->
-> Let me show you how it works."
+> Real tutoring is a conversation. You talk, you interrupt, you point at a problem. That's what **Faheem Math** does."
+
+**Why this works for judges:** Opens with the "breaks beyond text-box paradigm" criterion (40% of score). Sets up the contrast immediately.
 
 ---
 
-### [0:20–0:35] Start Session & Voice Activation
+### [0:15–0:30] Start Session — Show It's Live (15 seconds)
 
-**[Click "Start session" button]**
+**[Click "Start session"]**
 
-> "I'll click **Start session** to begin a live tutoring session.
->
-> **[Point to live state indicator]** Notice the live state indicator here — it shows **Connecting**, then **Live**, and the microphone starts automatically.
->
-> The app is now streaming audio to Gemini in real time."
+> "One click to start a live session."
 
-**[Wait for green "Live" indicator + mic activation]**
+**[Point to live state indicator as it transitions: Connecting → Live → Listening]**
+
+> "Watch the state indicator — **Connecting**… **Live**… and the mic activates automatically. Audio is now streaming full-duplex to Gemini's Live API. No latency. No turn-taking."
+
+**Why this works for judges:** Shows "truly live, not fragmented/turn-based" (Innovation criterion).
 
 ---
 
-### [0:35–1:15] Feature 1: Voice Explanation (Explain Mode)
+### [0:30–1:10] Voice Explanation — Explain Mode (40 seconds)
 
-**[Speak clearly into microphone]**
+**[Speak clearly into mic]**
 
 > "Explain how to solve 2x plus 5 equals 17."
 
-**[Point to UI as events happen]**
+**[As transcript updates in real-time, point to it]**
 
-> "**[As you speak]** You'll see my words transcribed in real time using the Web Speech API.
->
-> **[State changes to Thinking]** The live state changes to **Thinking** while Gemini processes the problem.
->
-> **[State changes to Speaking]** Now it's **Speaking** — Faheem is explaining the solution out loud.
->
-> **[Audio plays + transcript updates]** And here's the written explanation in the transcript — each message is timestamped."
+> "My words are transcribed live using the Web Speech API — you can see them appearing word by word.
 
-**[Let Faheem finish speaking, ~20-30 seconds]**
+**[State changes: Listening → Thinking → Speaking. Audio starts.]**
 
----
+> The state shifts to **Thinking**, then **Speaking**. Faheem is explaining the solution step by step — with audio and a written transcript, both updating in real time."
 
-### [1:15–1:45] Feature 2: Barge-in / Interruption
+**[Let Faheem speak for ~15-20 seconds. Don't rush — let judges hear the quality of the voice response and see the transcript populate.]**
 
-**[While Faheem is speaking, interrupt by speaking]**
-
-> "Wait, can you explain the first step again?"
-
-**[Point to UI]**
-
-> "**[State briefly shows Interrupted — orange]** Notice the live state changed to **Interrupted** — Faheem stopped speaking immediately.
->
-> This is the **barge-in** feature — you can cut in at any time, just like with a real tutor.
->
-> **[Faheem responds to follow-up]** And now Faheem is answering my follow-up question."
-
-**[Let Faheem respond briefly, ~10-15 seconds]**
+> "Notice the transcript shows student messages as 'U' and tutor responses as 'F', each timestamped."
 
 ---
 
-### [1:45–2:10] Feature 3: Mode Switching (Quiz Mode)
+### [1:10–1:45] Barge-in — The Hero Moment (35 seconds)
+
+**[CRITICAL: Time this so Faheem is mid-sentence when you interrupt. This is the most important feature for the Live Agents category.]**
+
+**[While Faheem is still speaking, interrupt boldly:]**
+
+> "Wait — what happens to the 5?"
+
+**[Point to the UI immediately]**
+
+> "Watch — the state just flashed **Interrupted** in orange. Faheem stopped mid-sentence the instant I spoke. No button, no waiting for him to finish — I just talked over him, exactly like you'd interrupt a real tutor.
+>
+> This is **barge-in handling** — Gemini's Live API detects that I started speaking and gracefully stops its own output."
+
+**[Faheem answers the follow-up. Let him speak ~10 seconds.]**
+
+> "And now he's answering my follow-up — context preserved, no confusion."
+
+**Why this works for judges:** Barge-in is the #1 differentiator for the Live Agents category. Make it dramatic and undeniable.
+
+---
+
+### [1:45–2:10] Quiz Mode — Behavior Adapts (25 seconds)
 
 **[Click "Quiz" tab in mode selector]**
 
-> "Now I'll switch to **Quiz mode** to test my understanding.
->
-> **[Mode tab highlights]** The app has three modes: **Explain**, **Quiz**, and **Homework** — you can switch mid-session.
->
-> **[Speak]** Quiz me on solving simple equations."
+> "I'll switch to **Quiz mode** mid-session."
 
-**[Point to UI]**
+**[Speak:]**
 
-> "**[Tutor asks a question instead of explaining]** See how Faheem adapted? Instead of explaining, he's asking me a question to quiz my understanding.
+> "Quiz me on solving equations."
+
+**[Faheem asks a question instead of explaining]**
+
+> "Same tutor, different behavior — instead of explaining, he's testing me with a question. The system injects mode-specific instructions at runtime, so the tutor persona stays consistent but the approach changes.
 >
-> **[Point to examples panel]** The examples panel also updated with Quiz-mode suggestions."
-
-**[Let Faheem ask 1 question briefly, ~10 seconds]**
+> There's also **Homework mode** for working through full problem sets."
 
 ---
 
-### [2:10–2:50] Feature 4: Vision (Image Upload, Homework Mode)
+### [2:10–2:55] Vision — Image Upload (45 seconds)
 
-**[Click "Homework" tab]**
+**[Click "Homework" tab, then click 📷 camera icon]**
 
-> "Finally, **Homework mode** — this is for helping with actual problem sets.
->
-> **[Click camera icon 📷]** I'll upload a photo of a handwritten math problem."
+> "Now the multimodal part — I'll upload a photo of a handwritten math problem."
 
-**[Select and upload test image]**
+**[Select and upload the test image. Image preview appears.]**
 
-> "**[Image preview appears]** Here's the preview — Faheem can read handwritten or printed math.
->
-> **[Type or say]** Help me solve this step by step.
->
-> **[Click send ↑]**"
+> "Here's the preview. I can speak or type a caption."
 
-**[Point to UI]**
+**[Speak or type:]**
 
-> "**[State changes to Seeing — violet]** The live state is now **Seeing…** — Gemini is processing the image.
->
-> **[Faheem responds with solution]** And here's the step-by-step solution — Faheem read the problem from the photo and explained how to solve it."
+> "Help me solve this step by step."
 
-**[Let Faheem explain briefly, ~20 seconds]**
+**[Click send ↑. Point to state indicator.]**
 
----
+> "The state shows **Seeing** — Gemini is reading the image with the 2.5 Flash vision model.
 
-### [2:50–3:15] Feature 5: Session Timer, Examples, & Help Panel
+**[Faheem responds. Let him speak ~15 seconds.]**
 
-**[Pan across UI or highlight specific elements]**
+> And here's the step-by-step solution — read directly from handwriting. Voice, text, and vision all flowing through a **single WebSocket connection**."
 
-> "A few more features to point out:
->
-> **[Point to timer if visible]** The session timer tracks how long you've been working.
->
-> **[Point to examples panel]** Each mode has example prompts to help students get started.
->
-> **[Point to Help/About panel if visible]** And there's a Help panel that shows WebSocket status, microphone status, and whether the app is in live or demo mode."
+**Why this works for judges:** Demonstrates "See, Hear, Speak" (Innovation criterion) and mentions technical architecture (Technical criterion).
 
 ---
 
-### [3:15–3:50] End Session & Recap
+### [2:55–3:25] Architecture & Cloud — Technical Proof (30 seconds)
 
-**[Click "End session" button]**
+**[OPTION A: Show architecture diagram briefly (recommended — open it in a new tab or overlay)]**
 
-> "Now I'll end the session.
->
-> **[Recap message appears in transcript]** Faheem sends a recap — it summarizes what we worked on, how long the session lasted, and how many problems we covered.
->
-> **[Live state returns to Ready — gray dot]** The live state returns to **Ready**, and all resources are cleaned up."
+> "Under the hood: a **single WebSocket** carries all three modalities — binary PCM audio frames, JSON text messages, and base64-encoded images. The FastAPI backend uses `asyncio` with two concurrent tasks — one upstream to Gemini, one downstream to the browser.
 
-**[Pause briefly to show recap message clearly]**
+**[OPTION B: If no diagram overlay, just narrate while pointing at the live strip]**
 
----
+> The whole stack runs on **Google Cloud Run** — backend and frontend. Gemini 2.5 Flash handles voice natively through the Live API, and text and vision go through the standard generate API. All built with the **Google GenAI SDK**."
 
-### [3:50–4:00] Closing & Tech Stack
-
-> "So that's **Faheem Math** — a live, multimodal AI tutor built for the Gemini Live Agent Challenge.
->
-> It's powered by **Gemini 2.5 Flash** — the native audio model for voice, and the standard model for text and vision.
->
-> The whole stack runs on **Google Cloud Run**, using the **Google GenAI SDK**.
->
-> Thanks for watching!"
-
-**[Optional: Show URL briefly — GitHub repo or live app link]**
+**Why this works for judges:** Directly addresses "effective utilization of GenAI SDK" and "robustly hosted on Google Cloud" (Technical criterion, 30%).
 
 ---
 
-## Key Features Demonstrated
+### [3:25–3:45] End Session & Recap (20 seconds)
 
-- [x] **Real-time voice** (Gemini Live API)
-- [x] **Barge-in / interruption** (Live Agents requirement)
-- [x] **Multimodal** (voice + text + vision)
-- [x] **Live state indicators** (Connecting, Live, Listening, Thinking, Speaking, Seeing, Interrupted)
-- [x] **Mode switching** (Explain, Quiz, Homework)
-- [x] **Live transcription** (Web Speech API)
-- [x] **Session timer & recap**
-- [x] **Image upload** (vision-enabled homework help)
+**[Click "End session"]**
 
----
+> "When the session ends, Faheem sends a recap — topics covered, session duration, problems worked through."
 
-## Notes
+**[Point to recap message in transcript. Point to timer.]**
 
-- **Timing:** Practice to stay under 4 minutes (aim for 3:50 to leave buffer)
-- **Clarity:** Speak clearly and point to UI elements as they update
-- **Pacing:** Let Faheem respond briefly (10-30 seconds per interaction) — don't rush, but don't let any single response drag
-- **Fallback:** If mic doesn't work, use text input and explain "voice works the same way"
-- **Editing:** Trim any long pauses or dead air in post-production
+> "The session timer tracked the whole thing. Everything is cleaned up gracefully — WebSocket closed, audio stopped, state back to Ready."
 
 ---
 
-**Last updated:** 2026-03-02
+### [3:45–3:50] Closing (5 seconds)
+
+> "That's **Faheem Math** — a live, voice-first AI tutor. Gemini Live API. Google Cloud Run. One WebSocket. Real tutoring.
+>
+> Thanks for watching."
+
+---
+
+## Feature Checklist (Demonstrated)
+
+- [x] **Real-time voice** — Gemini Live API, full-duplex audio
+- [x] **Barge-in / interruption** — Live Agents category requirement (emphasized)
+- [x] **Live transcription** — Web Speech API, partial + final results
+- [x] **Mode switching** — Explain / Quiz / Homework, mid-session
+- [x] **Vision** — Image upload, handwriting recognition
+- [x] **Architecture narration** — Single WebSocket, asyncio tasks, Cloud Run
+- [x] **Cloud deployment proof** — Mentioned by name, live app is the demo itself
+- [x] **Session timer & recap** — Accountability and closure
+- [x] **GenAI SDK** — Mentioned explicitly
+
+## Judging Criteria Coverage
+
+| Criterion | Weight | Where in Demo |
+|-----------|--------|---------------|
+| Innovation & Multimodal UX | 40% | 0:00 hook, 0:30 voice, 1:10 barge-in, 2:10 vision |
+| Technical Implementation | 30% | 2:55 architecture narration, SDK/Cloud mentions throughout |
+| Demo & Presentation | 30% | Clean UI throughout, real software, live responses |
+
+---
+
+## Recording Tips
+
+- **Barge-in timing is everything.** Practice the 1:10 interruption so Faheem is clearly mid-sentence when you cut in. If the timing is off, re-record just that section.
+- **Let Faheem talk.** Don't narrate over his responses — let judges hear the voice quality for 10-15 seconds at a time.
+- **Zoom to 110%.** UI elements read better on video at slight zoom.
+- **Record at 1080p.** Export at 1920x1080 minimum.
+- **Trim aggressively.** Any silence over 2 seconds should be cut.
+- **Don't show the console.** F12 closed. Clean UI only.
+
+## Fallback Plan
+
+| Problem | Fallback |
+|---------|----------|
+| Mic doesn't work | Use text input. Say "voice works identically" |
+| Deployed app is down | Switch to localhost. Say "same app deployed on Cloud Run" |
+| WebSocket disconnects | Refresh and restart. If persistent, use `GEMINI_STUB=true` |
+| Barge-in doesn't trigger cleanly | Re-record that section. Or say "interruption handling works — sometimes latency varies" |
+
+---
+
+**Last updated:** 2026-03-03

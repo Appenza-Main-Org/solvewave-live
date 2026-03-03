@@ -1,232 +1,179 @@
-# Building Faheem Math: A Live AI Tutor with Gemini Live API
+# I Built a Live AI Math Tutor You Can Interrupt Mid-Sentence
 
-_A real-time, voice-first math tutor that you can interrupt — built for the #GeminiLiveAgentChallenge_
+_How Gemini's Live API made real-time, voice-first tutoring possible — and what I learned along the way._
 
----
-
-## TL;DR
-
-I built **Faheem Math**, a live AI math tutor powered by Gemini's Live API. Students can:
-- **Speak** a math problem and get instant, step-by-step explanations
-- **Interrupt** mid-explanation (barge-in) to ask follow-up questions
-- **Upload** photos of homework — Faheem reads and solves handwritten or printed problems
-- **Switch modes** (Explain/Quiz/Homework) mid-session without losing context
-
-All running on **Google Cloud Run** with full-duplex audio, live transcription, and a sub-second response time.
-
-🚀 **Try it live:** https://faheem-math-frontend-872506223416.us-central1.run.app
-📦 **GitHub:** [Your repo URL]
+**#GeminiLiveAgentChallenge**
 
 ---
 
-## The Problem: Math Help Shouldn't Feel Like Filling Out a Form
+## The 10-Second Pitch
 
-Most AI tutoring tools are text-in/text-out. You type a question, wait, get a wall of text, then type another question. It's slow, unnatural, and breaks the flow of learning.
+**Faheem Math** is a live AI math tutor where students speak a problem, get an instant audio explanation, and can interrupt mid-sentence to ask "wait, what?" — just like with a real tutor. It also reads handwritten homework from photos and adapts its teaching style on the fly.
 
-Real tutoring is a **conversation**. A student asks a question, the tutor explains, the student interrupts with "wait, what?" — and the tutor adjusts in real time. That's what I wanted to build.
-
----
-
-## Enter Gemini Live API
-
-Google's [Gemini Live API](https://ai.google.dev/gemini-api/docs/live) is a game-changer for this use case. It provides:
-- **Native audio I/O** — Gemini processes raw PCM audio, no speech-to-text middleware
-- **Full-duplex streaming** — The model can speak and listen at the same time
-- **Barge-in detection** — Gemini knows when the user starts speaking mid-response and stops gracefully
-
-This is exactly what you need for a real-time tutoring experience.
+Try it live: https://faheem-math-frontend-872506223416.us-central1.run.app
+Code: https://github.com/Appenza-Main-Org/faheem-live-competition
 
 ---
 
-## Architecture: Single WebSocket, Three Modalities
+## Why I Built This
 
-The app uses a **single WebSocket connection** (`/ws/session`) for all interactions:
+Every AI tutoring tool I've seen works the same way: type a question, click send, wait, read a wall of text, repeat. That's not tutoring — that's a search engine with extra steps.
+
+Real tutoring is messy. A student says "I don't get fractions," the tutor starts explaining, the student interrupts with "wait, why did you flip it?" — and the tutor pivots instantly. There's no "submit" button in a real conversation.
+
+When I saw that Google's Gemini Live API supported full-duplex audio with native barge-in detection, I knew I could build something that actually felt like a conversation.
+
+---
+
+## What Faheem Math Does
+
+**Three ways to ask:**
+- **Speak** a problem — "How do I solve 2x + 5 = 17?" — and hear a step-by-step explanation instantly
+- **Upload a photo** of handwritten homework — Faheem reads it and walks you through the solution
+- **Type** if you prefer — same tutor, same quality
+
+**Three tutoring modes:**
+- **Explain** — walks through solutions step by step
+- **Quiz** — flips the script and asks *you* questions to test understanding
+- **Homework** — works through full problem sets, showing every step
+
+**The key feature: barge-in.** You can interrupt Faheem mid-explanation. He stops immediately, listens to your follow-up, and responds — no button press, no waiting. This is what makes it feel like a real tutor instead of a voice assistant.
+
+---
+
+## How It Works: One WebSocket, Three Modalities
+
+The architecture is deliberately simple. Everything flows through a **single WebSocket connection**:
 
 ```
-Browser ←→ WebSocket ←→ FastAPI Backend ←→ Gemini Live API
+Browser  <--WebSocket-->  FastAPI Backend  <--Live API-->  Gemini
 ```
 
-**Three message types over one connection:**
-1. **Binary frames** — PCM audio (16kHz in, 24kHz out) for voice
-2. **JSON (text)** — Text messages and control signals (status, errors, recap)
-3. **JSON (image)** — Base64-encoded homework photos for vision-enabled help
+Three message types share one connection:
+1. **Binary frames** — raw PCM audio (16kHz from mic, 24kHz from tutor)
+2. **JSON text** — typed messages, status updates, session recap
+3. **JSON image** — base64-encoded homework photos for vision
 
-This keeps the architecture simple — no separate connections, no complex state sync.
+No separate connections for audio vs. text. No complex state sync. One pipe, three modalities.
 
-### Backend: FastAPI + `asyncio`
+### The Backend
 
-The backend uses FastAPI's WebSocket support + `asyncio.Queue` to decouple:
-- **Receive loop** — Reads from WebSocket (mic audio, text, images)
-- **Gemini Live bridge** — Streams audio to/from Gemini, handles text/image via standard API
+FastAPI with two concurrent `asyncio` tasks:
+- **Upstream:** mic audio flows from the browser through an `asyncio.Queue` to Gemini Live
+- **Downstream:** Gemini's audio response streams back to the browser speaker
 
-Two concurrent `asyncio` tasks run in parallel:
-- **Upstream:** Browser mic → Queue → Gemini Live
-- **Downstream:** Gemini Live → Browser speaker
+The `asyncio.Queue` was a critical design choice — it decouples the WebSocket receive loop from the Gemini send loop, preventing audio backpressure from blocking the connection.
 
-### Frontend: React + Web Audio API + Web Speech API
+Text and image requests use Gemini's standard generate API (`gemini-2.5-flash`) rather than the Live API, since they don't need streaming audio.
 
-The frontend uses:
-- **Web Audio API** — Capture mic (16kHz), play tutor audio (24kHz)
-- **Web Speech API** — Live transcription of what the student says (Chrome/Edge)
-- **React state** — Manages live states (Idle, Connecting, Listening, Thinking, Speaking, Interrupted)
+### The Frontend
 
----
+Next.js 14 with three key browser APIs:
+- **Web Audio API** — captures mic at 16kHz PCM, plays tutor audio at 24kHz
+- **Web Speech API** — live transcription of what the student says (partial results update word-by-word)
+- **KaTeX** — renders LaTeX math notation in the chat transcript
 
-## Key Features
-
-### 1. **Live Voice Interaction**
-Speak a math problem — Faheem responds instantly with audio + transcript. No delays, no "submit" button.
-
-### 2. **Barge-in Support**
-Interrupt mid-explanation. Gemini detects the interruption, stops speaking, and listens to your follow-up. The UI shows an "Interrupted" state (orange pulse) for 900ms to confirm.
-
-### 3. **Three Tutoring Modes**
-- **Explain** — Step-by-step explanations with worked examples
-- **Quiz** — Asks questions to test understanding
-- **Homework** — Walks through actual problem sets, shows all steps
-
-Mode-specific "addendums" are injected into the system prompt at runtime, so the base tutor persona stays consistent while behavior adapts.
-
-### 4. **Vision-Enabled Homework Help**
-Snap or upload a photo of homework — Faheem reads handwritten or printed math and explains the solution step by step. Uses `gemini-2.5-flash` (standard API) for multimodal vision.
-
-### 5. **Live Transcription**
-The Web Speech API transcribes what the student says in real time (partial results update live, final results lock in after each utterance). This gives instant visual feedback and helps students see what Gemini "heard."
-
-### 6. **Session Timer & Recap**
-Each session tracks elapsed time (`mm:ss`). At the end, Faheem sends a recap:
-- Summary of topics covered
-- Session duration
-- Problem count
-
-This adds accountability and closure.
+The UI tracks eight distinct live states (Idle, Connecting, Live, Listening, Thinking, Speaking, Seeing, Interrupted) — each with its own visual indicator so students always know what the tutor is doing.
 
 ---
 
-## Technical Challenges & Learnings
+## The Hard Parts
 
-### 1. **Audio Backpressure**
-Initially, I piped WebSocket audio directly to Gemini. Under heavy traffic, this caused blocking. Solution: `asyncio.Queue` decouples receive from send — the WebSocket can buffer audio chunks without blocking the Gemini upstream.
+### Barge-in UX
 
-### 2. **Partial vs. Final Transcripts**
-The Web Speech API fires `onresult` events with `isFinal=false` (partial) and `isFinal=true` (final). I update a "partial" transcript row in place until `isFinal`, then lock it in. This gives real-time feedback without flooding the UI with duplicate rows.
+Gemini's Live API detects interruptions automatically — but surfacing that in the UI required care. When the backend receives an interruption signal, it:
+1. Stops sending audio to the browser
+2. Discards any partial response text
+3. Sends an "interrupted" control message to the frontend
+4. The UI flashes an orange "Interrupted" indicator for 900ms
 
-### 3. **Barge-in UX**
-Detecting interruptions is easy (Gemini does it automatically). Surfacing it in the UI is harder. I added:
-- `setIsSpeaking(false)` on interruption signal
-- `setIsInterrupted(true)` for 900ms (orange pulse)
-- Clear the "Speaking" timer immediately
+The result: the student talks over Faheem, Faheem stops within a fraction of a second, and the UI confirms it happened. It feels natural.
 
-This makes the interruption feel responsive.
+### Web Speech API Auto-Restart
 
-### 4. **Mode Switching Without Losing Context**
-Instead of hardcoding three separate system prompts, I inject short mode-specific addendums at runtime:
+Chrome's Web Speech API has a quirk: even with `continuous: true`, it sometimes stops recognition after a final result. If you don't handle this, the student asks one question by voice and then transcription silently dies.
+
+The fix: a `wantRunningRef` flag that tracks whether the user wants transcription active. When the recognition's `onend` fires unexpectedly, we check the flag and auto-restart a new instance — reusing the same event handlers. The user never notices.
+
+### Partial vs. Final Transcripts
+
+The Web Speech API fires interim results (`isFinal: false`) and final results (`isFinal: true`). I maintain a "partial transcript index" that updates a single row in place as the student speaks, then locks it in when the utterance is complete. This gives word-by-word feedback without flooding the chat with duplicate lines.
+
+### Mode Switching Without Losing Context
+
+Rather than maintaining three separate system prompts, I inject short mode-specific addendums at runtime:
+
 ```python
 effective_prompt = base_prompt + MODE_ADDENDUM[mode]
 ```
-This keeps the tutor persona consistent while adapting behavior (e.g., "ask questions" in Quiz mode, "show all steps" in Homework mode).
 
-### 5. **Demo Mode for Judges**
-Not everyone has a Gemini API key. I added `GEMINI_STUB=true` to return canned responses without hitting the API. This lets judges test the full UX flow (WebSocket, audio playback, UI states) without needing credentials.
+The base tutor persona stays consistent. Only the behavioral instructions change — "ask questions" in Quiz mode, "show all work" in Homework mode.
 
 ---
 
-## Cloud Run Deployment
+## Deployment: Cloud Run
 
-Deploying to **Google Cloud Run** was surprisingly smooth:
+Both frontend and backend deploy to **Google Cloud Run** with a single command each:
 
 ```bash
 gcloud run deploy faheem-math-backend \
   --source backend \
   --region us-central1 \
-  --allow-unauthenticated \
-  --set-env-vars "GEMINI_API_KEY=...,CORS_ORIGINS=[\"*\"]"
+  --allow-unauthenticated
 ```
 
-Cloud Run:
-- Auto-builds the container from `Dockerfile`
-- Injects `PORT` (backend binds `0.0.0.0:$PORT`)
-- Handles TLS (WebSocket upgrade to `wss://`)
-- Scales to zero when idle (no cost)
+Cloud Run handles container builds, TLS termination (so WebSockets upgrade to `wss://` automatically), and scales to zero when idle. I wrote deployment scripts (`scripts/deploy.sh` and `scripts/deploy.ps1`) for one-command deploys on any platform.
 
-I wrote deployment scripts (`scripts/deploy.sh`, `scripts/deploy.ps1`) for one-command deploys.
+For judges and reviewers who don't have a Gemini API key, there's a **stub mode** (`GEMINI_STUB=true`) that returns canned responses — so you can test the full UX pipeline without any credentials.
 
 ---
 
-## Demo Video (Under 4 Minutes)
+## The Stack
 
-Watch the full demo here: [Video URL]
-
-**Timestamps:**
-- 0:00 — Introduction
-- 0:35 — Voice explanation (Explain mode)
-- 1:15 — Barge-in / interruption
-- 1:45 — Quiz mode
-- 2:10 — Vision (homework photo upload)
-- 3:15 — Session recap & timer
-
----
-
-## What's Next?
-
-- **Session persistence** — Save transcripts + recaps to Firestore
-- **Multi-subject support** — Expand beyond math (science, history, etc.)
-- **Arabic voice** — Add bilingual support (Arabic + English voice switching)
-- **Collaborative sessions** — Multi-student group tutoring
+| Layer | Technology |
+|-------|-----------|
+| AI Model | Gemini 2.5 Flash — native audio (`gemini-2.5-flash-native-audio-latest`) + text/vision (`gemini-2.5-flash`) |
+| SDK | Google GenAI SDK (`google-genai` Python package) |
+| Backend | FastAPI + asyncio + WebSockets |
+| Frontend | Next.js 14 (App Router) + Tailwind CSS + TypeScript |
+| Audio | Web Audio API (capture/playback) + Web Speech API (transcription) |
+| Math Rendering | KaTeX (LaTeX in chat bubbles) |
+| Cloud | Google Cloud Run (us-central1) |
+| Tools | 4 structured tools — problem type detection, answer checking, hint generation, session recap |
 
 ---
 
-## Try It Yourself
+## What I'd Build Next
 
-🚀 **Live app:** https://faheem-math-frontend-872506223416.us-central1.run.app
-📦 **GitHub:** [Your repo URL]
-📄 **Docs:** See [SUBMISSION.md](../../SUBMISSION.md) for full details
+- **Session persistence** — save transcripts and recaps to Firestore so students can review past sessions
+- **Progress tracking** — track which topics a student struggles with across sessions
+- **Multi-subject expansion** — the architecture generalizes beyond math (science, language arts)
+- **Collaborative mode** — multiple students in one session, taking turns
 
-Or run locally with demo mode (no API key):
+---
+
+## Try It
+
+**Live app:** https://faheem-math-frontend-872506223416.us-central1.run.app
+
+**Run locally (no API key needed):**
 ```bash
-cd backend
-pip install -r requirements.txt
-export GEMINI_STUB=true
-uvicorn app.main:app --reload
+# Backend with stub mode
+cd backend && pip install -r requirements.txt
+GEMINI_STUB=true uvicorn app.main:app --reload
 
-# In another terminal
-cd frontend
-npm install && npm run dev
+# Frontend
+cd frontend && npm install && npm run dev
 ```
 
----
-
-## Built With
-
-- **Gemini Live API** — `gemini-2.5-flash-native-audio-latest` (voice), `gemini-2.5-flash` (text/images)
-- **Google GenAI SDK** — Official Python SDK
-- **Google Cloud Run** — Serverless container deployment
-- **FastAPI** — High-performance Python web framework
-- **Next.js 14** — React framework (App Router)
-- **Web Audio API** — Audio capture + playback
-- **Web Speech API** — Live transcription
+**Full source:** https://github.com/Appenza-Main-Org/faheem-live-competition
 
 ---
 
-## Acknowledgments
+Built for the **Google Gemini Live Agent Challenge** #GeminiLiveAgentChallenge
 
-Built for the **Google Gemini Live Agent Challenge** (#GeminiLiveAgentChallenge).
-
-Thanks to:
-- The Gemini team for an incredible API
-- The Google Cloud DevRel team for clear docs
-- The FastAPI and Next.js communities
+**Tags:** #GeminiLiveAgentChallenge #GoogleGemini #LiveAgents #AI #EdTech #MathTutor #CloudRun #GeminiLiveAPI
 
 ---
 
-**Tags:** #GeminiLiveAgentChallenge #GoogleGemini #LiveAgents #AI #EdTech #MathTutor #CloudRun #NextJS #FastAPI
-
----
-
-**Published:** 2026-03-02
-**Author:** [Your Name]
-**License:** MIT
-
----
-
-_Ready to publish? Adapt this draft to your preferred platform (Dev.to, Medium, personal blog, LinkedIn, etc.). Include the #GeminiLiveAgentChallenge hashtag for bonus points!_
+_Adapt this for your preferred platform: Dev.to, Medium, LinkedIn, or your blog. Make sure to keep the #GeminiLiveAgentChallenge hashtag for bonus points._
