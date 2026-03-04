@@ -43,6 +43,7 @@ export function useSessionSocket() {
   const [lastSentType, setLastSentType] = useState<"text" | "image">("text");
   const [voiceActive, setVoiceActive]     = useState(false);
   const [isSpeaking, setIsSpeaking]       = useState(false);
+  const [errorDetail, setErrorDetail]     = useState<string | null>(null);
   const [isInterrupted, setIsInterrupted] = useState(false);
 
   // WebSocket
@@ -155,11 +156,14 @@ export function useSessionSocket() {
 
     log.session("Starting session", { url: WS_URL });
     setStatus("connecting");
+    setErrorDetail(null);
     log.state("idle → connecting");
 
     // Fire-and-forget warm-up: hit the HTTP health endpoint to wake Cloud Run
     // before opening the WebSocket. This prevents cold-start timeouts on mobile.
-    fetch(HEALTH_URL, { mode: "cors" }).catch(() => {});
+    fetch(HEALTH_URL, { mode: "cors" })
+      .then((r) => log.ws(`Warm-up response: ${r.status}`))
+      .catch((e) => log.ws(`Warm-up failed: ${e}`));
     log.ws("Warm-up ping sent to", HEALTH_URL);
 
     const connectWs = () => {
@@ -223,6 +227,7 @@ export function useSessionSocket() {
           log.error("Server error", msg.value);
           setIsThinking(false);
           setStatus("error");
+          setErrorDetail(`Server: ${msg.value}`);
           log.state("→ error");
           append({ role: "tutor", text: `⚠ ${msg.value}`, timestamp: timestamp() });
         }
@@ -242,8 +247,9 @@ export function useSessionSocket() {
         }
       };
 
-      ws.onerror = (event) => {
-        log.error("WebSocket error", event);
+      ws.onerror = () => {
+        const detail = `WS error → ${WS_URL} (attempt ${retryCountRef.current + 1}/${MAX_RETRIES + 1})`;
+        log.error(detail);
         // Null the ref so the subsequent onclose (which always fires after
         // onerror) skips the state reset and doesn't interfere with retry.
         wsRef.current = null;
@@ -256,11 +262,13 @@ export function useSessionSocket() {
           setStatus("connecting"); // keep showing "connecting" during retries
           setTimeout(connectWs, delay);
         } else {
+          const finalDetail = `Connection failed after ${MAX_RETRIES + 1} attempts.\nURL: ${WS_URL}\nHealth: ${HEALTH_URL}`;
+          log.state("→ error (ws error after retries)");
           stopVoiceCleanup();
           setStatus("error");
+          setErrorDetail(finalDetail);
           setIsThinking(false);
           retryCountRef.current = 0;
-          log.state("→ error (ws error after retries)");
         }
       };
     };
@@ -496,6 +504,7 @@ export function useSessionSocket() {
     isSpeaking,
     liveState,
     voiceActive,
+    errorDetail,
     transcript,
     setTranscript,
     startSession,

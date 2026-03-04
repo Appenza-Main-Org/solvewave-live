@@ -54,6 +54,7 @@ export default function SessionPage() {
     isSpeaking,
     liveState,
     voiceActive,
+    errorDetail,
     transcript,
     setTranscript,
     startSession,
@@ -434,7 +435,7 @@ export default function SessionPage() {
       {/* ── Live voice / state strip (pinned above composer) ──────────────── */}
       <div
         className={`
-          flex-none flex items-center gap-2 sm:gap-3 mx-2 sm:mx-4 mb-1 px-3 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl text-xs
+          flex-none flex flex-col gap-1 mx-2 sm:mx-4 mb-1 px-3 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl text-xs
           border bg-slate-950/80
           ${
             liveState === "error"
@@ -445,36 +446,56 @@ export default function SessionPage() {
           }
         `}
       >
-        <div className="flex items-center gap-1.5">
-          <span
-            className={`
-              w-2 h-2 rounded-full ${state.dot}
-              ${state.pulse ? "animate-pulse" : ""}
-            `}
-          />
-          <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] sm:tracking-[0.16em]">
-            {LIVE_STRIP_COPY[liveState].title}
-          </span>
-        </div>
-        <div className="hidden sm:block flex-1 min-w-0">
-          <p className="text-[11px] text-slate-400 truncate">
-            {LIVE_STRIP_COPY[liveState].body}
-          </p>
-        </div>
-        {voiceActive && liveState !== "error" && (
-          <div className="flex items-end gap-[3px] h-5 sm:h-6 ml-auto">
-            {[1, 2, 3, 4].map((b) => (
-              <div
-                // eslint-disable-next-line react/no-array-index-key
-                key={b}
-                className="w-1 rounded-full bg-emerald-400/80 animate-[bounce_1.1s_ease-in-out_infinite]"
-                style={{
-                  height: `${4 + b * 3}px`,
-                  animationDelay: `${b * 90}ms`,
-                }}
-              />
-            ))}
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5">
+            <span
+              className={`
+                w-2 h-2 rounded-full ${state.dot}
+                ${state.pulse ? "animate-pulse" : ""}
+              `}
+            />
+            <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] sm:tracking-[0.16em]">
+              {LIVE_STRIP_COPY[liveState].title}
+            </span>
           </div>
+          <div className="hidden sm:block flex-1 min-w-0">
+            <p className="text-[11px] text-slate-400 truncate">
+              {LIVE_STRIP_COPY[liveState].body}
+            </p>
+          </div>
+          {voiceActive && liveState !== "error" && (
+            <div className="flex items-end gap-[3px] h-5 sm:h-6 ml-auto">
+              {[1, 2, 3, 4].map((b) => (
+                <div
+                  // eslint-disable-next-line react/no-array-index-key
+                  key={b}
+                  className="w-1 rounded-full bg-emerald-400/80 animate-[bounce_1.1s_ease-in-out_infinite]"
+                  style={{
+                    height: `${4 + b * 3}px`,
+                    animationDelay: `${b * 90}ms`,
+                  }}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+        {/* Error detail — tappable to copy */}
+        {liveState === "error" && errorDetail && (
+          <button
+            type="button"
+            onClick={() => {
+              if (navigator.clipboard) {
+                navigator.clipboard.writeText(errorDetail);
+                alert("Error copied to clipboard:\n\n" + errorDetail);
+              } else {
+                alert(errorDetail);
+              }
+            }}
+            className="text-left text-[10px] text-red-300/80 bg-red-950/50 rounded-lg px-2 py-1.5 font-mono whitespace-pre-wrap break-all leading-relaxed"
+          >
+            {errorDetail}
+            <span className="block mt-1 text-red-400/60 text-[9px] uppercase tracking-wider">Tap to copy</span>
+          </button>
         )}
       </div>
 
