@@ -1,6 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import AmbientOrb from "@/components/AmbientOrb";
+import { 
+  Mic, 
+  MicOff, 
+  Camera, 
+  Send, 
+  ChevronRight, 
+  HelpCircle, 
+  Timer,
+  Zap
+} from "lucide-react";
 import { useSessionSocket, LiveState } from "@/hooks/useSessionSocket";
 import { useVoiceTranscription } from "@/hooks/useVoiceTranscription";
 import { useSessionTimer } from "@/hooks/useSessionTimer";
@@ -200,6 +212,12 @@ export default function SessionPage() {
     // Auto-send immediately — no staging/upload step
     if (isActive) {
       sendImage(file, "", mode);
+      // Feedback animation for upload
+      const feedback = document.createElement('div');
+      feedback.className = 'fixed inset-0 pointer-events-none z-[100] bg-emerald-500/10 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-500';
+      feedback.innerHTML = '<div class="p-6 rounded-3xl bg-slate-900 border border-emerald-500/30 shadow-2xl scale-in-center animate-out fade-out fill-mode-forwards delay-700">📷 Image Sent</div>';
+      document.body.appendChild(feedback);
+      setTimeout(() => feedback.remove(), 1200);
     }
     e.target.value = "";
   }
@@ -247,279 +265,221 @@ export default function SessionPage() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
+  const liveStateColor = useMemo(() => {
+    switch (liveState) {
+      case "idle": return "#64748b";
+      case "connecting": return "#facc15";
+      case "thinking": return "#38bdf8";
+      case "seeing": return "#a78bfa";
+      case "listening": return "#fb7185";
+      case "speaking": return "#10b981";
+      case "interrupted": return "#fb923c";
+      case "error": return "#ef4444";
+      default: return "#10b981";
+    }
+  }, [liveState]);
+
   return (
-    <div className="flex flex-col h-dvh bg-slate-950 overflow-hidden">
+    <div className="flex flex-col h-dvh bg-slate-950 text-slate-100 overflow-hidden font-sans relative">
+      {/* ── Background Glow ── */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+        <motion.div 
+          animate={{
+            backgroundColor: liveStateColor,
+            opacity: [0.05, 0.08, 0.05],
+          }}
+          transition={{ duration: 1, ease: "easeInOut" }}
+          className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full blur-[120px]" 
+        />
+      </div>
 
-      {/* ── Header ────────────────────────────────────────────────────────── */}
-      <header className="flex-none border-b border-slate-800/60 bg-slate-950/95 backdrop-blur z-10">
-        {/* Row 1: Brand + controls */}
-        <div className="flex items-center gap-2 sm:gap-4 px-3 sm:px-5 h-12 sm:h-16">
-
-          {/* Brand */}
-          <div className="flex items-center gap-2 shrink-0">
-            <FaheemLogo size={28} />
-            <span className="hidden sm:inline font-semibold text-sm tracking-tight text-slate-200">
+      {/* ── Modern Header ────────────────────────────────────────────────────────── */}
+      <header className="flex-none h-16 border-b border-white/5 bg-slate-950/50 backdrop-blur-xl z-20 px-4 sm:px-6 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+            <FaheemLogo size={24} />
+          </div>
+          <div>
+            <h1 className="text-sm font-bold tracking-tight">
               Faheem <span className="text-emerald-400">Math</span>
-            </span>
-          </div>
-
-          {/* Mode Tab Bar — centered (desktop only) */}
-          <div className="hidden md:flex flex-1 justify-center">
-            <ModeSelector selected={mode} onChange={handleModeChange} />
-          </div>
-
-          {/* Spacer on mobile/tablet */}
-          <div className="flex-1 md:hidden" />
-
-          {/* Session timer + Live state + session controls */}
-          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-            {isActive && (
-              <div className="hidden sm:block px-3 py-1.5 rounded-full bg-slate-900/90 border border-slate-800 text-xs text-slate-300 font-mono">
-                {timerDisplay}
-              </div>
-            )}
-            <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-slate-900/90 border border-slate-800">
-              <span
-                className={`w-2 h-2 rounded-full shrink-0 ${state.dot} ${state.pulse ? "animate-pulse" : ""}`}
-              />
-              <span className="text-[10px] sm:text-xs text-slate-300 font-medium">{state.label}</span>
+            </h1>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <div className={`w-1.5 h-1.5 rounded-full ${state.dot} ${state.pulse ? "animate-pulse" : ""}`} />
+              <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-500">{state.label}</span>
             </div>
-            <button
-              onClick={() => setHelpPanelOpen(true)}
-              className="hidden lg:flex flex-none w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 items-center justify-center text-slate-400 hover:text-slate-200 transition-colors text-sm"
-              title="Help & About"
-              type="button"
-            >
-              ?
-            </button>
-            <button
-              onClick={() => {
-                if (isActive) {
-                  stopSession();
-                } else {
-                  autoVoiceRef.current = true; // auto-start voice once connected
-                  startSession();
-                }
-              }}
-              disabled={status === "connecting"}
-              className={`
-                flex-none px-3 sm:px-3.5 h-8 sm:h-9 rounded-full text-[11px] sm:text-xs font-semibold whitespace-nowrap
-                transition-all duration-150 active:scale-95 border border-transparent
-                ${isActive
-                  ? "bg-red-600/90 hover:bg-red-500 text-white"
-                  : "bg-emerald-600 hover:bg-emerald-500 text-white"
-                }
-                disabled:opacity-50 disabled:cursor-not-allowed
-              `}
-            >
-              {/* Short labels on mobile/tablet, full on desktop */}
-              <span className="lg:hidden">
-                {status === "connecting" ? "…" : isActive ? "End" : "Start"}
-              </span>
-              <span className="hidden lg:inline">
-                {status === "connecting" ? "Connecting…" : isActive ? "End session" : "Start session"}
-              </span>
-            </button>
           </div>
         </div>
 
-        {/* Row 2: Mode selector (mobile/tablet only) */}
-        <div className="md:hidden flex justify-center px-3 pb-2">
+        <div className="hidden md:block">
           <ModeSelector selected={mode} onChange={handleModeChange} />
+        </div>
+
+        <div className="flex items-center gap-2 sm:gap-4">
+          {isActive && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
+              <Timer size={14} className="text-slate-400" />
+              <span className="text-xs font-mono text-slate-300">{timerDisplay}</span>
+            </div>
+          )}
+          
+          <button
+            onClick={() => setHelpPanelOpen(true)}
+            className="p-2 rounded-lg hover:bg-white/5 text-slate-400 transition-colors"
+          >
+            <HelpCircle size={20} />
+          </button>
+
+          <button
+            onClick={() => {
+              if (isActive) {
+                stopSession();
+              } else {
+                autoVoiceRef.current = true;
+                startSession();
+              }
+            }}
+            disabled={status === "connecting"}
+            className={`
+              px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95
+              ${isActive 
+                ? "bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500/20" 
+                : "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-400"}
+              disabled:opacity-50
+            `}
+          >
+            {status === "connecting" ? "Connecting..." : isActive ? "End Session" : "Start Session"}
+          </button>
         </div>
       </header>
 
-      {/* ── Main layout: transcript + side panel ───────────────────────────── */}
-      <main className="flex-1 min-h-0 overflow-hidden px-2 py-2 sm:px-4 sm:py-3 lg:px-6 lg:py-4">
-        <div className="h-full flex flex-col lg:flex-row gap-3 lg:gap-5">
+      {/* ── Main Layout ───────────────────────────────────────────────────────────── */}
+      <main className="flex-1 relative flex flex-col lg:flex-row overflow-hidden z-10">
+        
+        {/* Left: Mode Selector (Mobile Only) */}
+        <div className="md:hidden flex-none p-3 border-b border-white/5">
+          <ModeSelector selected={mode} onChange={handleModeChange} />
+        </div>
 
-          {/* Primary: transcript / live tutoring surface */}
-          <section className="flex-1 min-h-0 min-w-0">
-            <div className="h-full rounded-xl sm:rounded-2xl bg-slate-900/70 border border-slate-800/70 shadow-[0_0_0_1px_rgba(15,23,42,0.9)] overflow-hidden">
-              <TranscriptPanel
+        {/* Center: Interaction Space */}
+        <section className="flex-1 flex flex-col min-w-0 bg-gradient-to-b from-transparent to-slate-900/20">
+          
+          {/* Ambient State Visualization */}
+          <div className="flex-none pt-4 pb-2">
+            <AmbientOrb state={liveState} />
+            <div className="text-center mt-2 px-6">
+              <motion.p 
+                key={liveState}
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-sm text-slate-400 font-medium"
+              >
+                {LIVE_STRIP_COPY[liveState].body}
+              </motion.p>
+            </div>
+          </div>
+
+          {/* Transcript Canvas */}
+          <div className="flex-1 min-h-0 px-4 sm:px-6 pb-4">
+            <div className="h-full rounded-2xl bg-white/[0.02] border border-white/5 backdrop-blur-sm overflow-hidden shadow-2xl relative">
+               <TranscriptPanel
                 entries={transcript}
                 isThinking={isThinking && isActive}
               />
             </div>
-          </section>
+          </div>
+        </section>
 
-          {/* Secondary: contextual side panel (hidden on mobile) */}
-          <aside className="hidden lg:flex w-80 flex-none flex-col gap-4">
-            {/* Examples panel */}
-            <ExamplesPanel
-              mode={mode}
-              onExampleClick={handleExampleClick}
-              disabled={!isActive}
-            />
-
-            {/* Camera tip */}
-            <div className="rounded-2xl bg-slate-900/80 border border-slate-800/70 px-4 py-3">
-              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-                Camera
-              </span>
-              <p className="mt-1 text-xs text-slate-500">
-                Tap 📷 below to snap a math problem — it sends automatically.
+        {/* Right: Tools & Context (Desktop Only) */}
+        <aside className="hidden xl:flex w-80 flex-none flex-col gap-4 p-6 border-l border-white/5 bg-slate-950/30">
+          <div className="space-y-6">
+            <section>
+              <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-500 mb-4">Study Tools</h3>
+              <ExamplesPanel
+                mode={mode}
+                onExampleClick={handleExampleClick}
+                disabled={!isActive}
+              />
+            </section>
+            
+            <section className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10">
+              <div className="flex items-center gap-2 text-emerald-400 mb-2">
+                <Zap size={16} />
+                <span className="text-xs font-bold uppercase tracking-wider">Quick Tip</span>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                You can interrupt Faheem at any time just by speaking. He'll stop and listen to your follow-up immediately.
               </p>
-            </div>
-          </aside>
-        </div>
+            </section>
+          </div>
+        </aside>
       </main>
 
-      {/* ── Live voice / state strip (pinned above composer) ──────────────── */}
-      <div
-        className={`
-          flex-none flex flex-col gap-1 mx-2 sm:mx-4 mb-1 px-3 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl text-xs
-          border bg-slate-950/80
-          ${
-            liveState === "error"
-              ? "border-red-500/60 text-red-100 bg-red-950/40"
-              : liveState === "interrupted"
-              ? "border-orange-500/60 text-orange-50 bg-slate-950/80"
-              : "border-slate-800 text-slate-300"
-          }
-        `}
-      >
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="flex items-center gap-1.5">
-            <span
-              className={`
-                w-2 h-2 rounded-full ${state.dot}
-                ${state.pulse ? "animate-pulse" : ""}
-              `}
-            />
-            <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] sm:tracking-[0.16em]">
-              {LIVE_STRIP_COPY[liveState].title}
-            </span>
-          </div>
-          <div className="hidden sm:block flex-1 min-w-0">
-            <p className="text-[11px] text-slate-400 truncate">
-              {LIVE_STRIP_COPY[liveState].body}
-            </p>
-          </div>
-          {voiceActive && liveState !== "error" && (
-            <div className="flex items-end gap-[3px] h-5 sm:h-6 ml-auto">
-              {[1, 2, 3, 4].map((b) => (
-                <div
-                  // eslint-disable-next-line react/no-array-index-key
-                  key={b}
-                  className="w-1 rounded-full bg-emerald-400/80 animate-[bounce_1.1s_ease-in-out_infinite]"
-                  style={{
-                    height: `${4 + b * 3}px`,
-                    animationDelay: `${b * 90}ms`,
-                  }}
-                />
-              ))}
+      {/* ── Floating Composer ────────────────────────────────────────────────────── */}
+      <footer className="flex-none p-4 sm:p-6 z-20">
+        <div className="max-w-4xl mx-auto relative">
+          <div className="absolute inset-0 bg-emerald-500/5 blur-3xl rounded-full opacity-50 pointer-events-none" />
+          
+          <div className="relative flex items-end gap-2 p-2 rounded-2xl bg-slate-900/80 border border-white/10 backdrop-blur-2xl shadow-2xl focus-within:border-emerald-500/50 transition-all">
+            
+            {/* Action Buttons */}
+            <div className="flex items-center gap-1.5 pb-1">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={!isActive}
+                className="p-2.5 rounded-xl bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-20"
+              >
+                <Camera size={20} />
+              </button>
+              
+              <button
+                onClick={handleVoiceToggle}
+                disabled={!isActive}
+                className={`
+                  p-2.5 rounded-xl transition-all disabled:opacity-20
+                  ${voiceActive 
+                    ? "bg-rose-500 text-white shadow-lg shadow-rose-500/20" 
+                    : "bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"}
+                `}
+              >
+                {voiceActive ? <MicOff size={20} /> : <Mic size={20} />}
+              </button>
             </div>
-          )}
-        </div>
-        {/* Error detail — tappable to copy */}
-        {liveState === "error" && errorDetail && (
-          <button
-            type="button"
-            onClick={() => {
-              if (navigator.clipboard) {
-                navigator.clipboard.writeText(errorDetail);
-                alert("Error copied to clipboard:\n\n" + errorDetail);
-              } else {
-                alert(errorDetail);
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleImagePick}
+            />
+
+            {/* Input Field */}
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={!isActive}
+              rows={1}
+              placeholder={
+                voiceActive ? "Listening..." : isActive ? "Ask a math question..." : "Start session to chat"
               }
-            }}
-            className="text-left text-[10px] text-red-300/80 bg-red-950/50 rounded-lg px-2 py-1.5 font-mono whitespace-pre-wrap break-all leading-relaxed"
-          >
-            {errorDetail}
-            <span className="block mt-1 text-red-400/60 text-[9px] uppercase tracking-wider">Tap to copy</span>
-          </button>
-        )}
-      </div>
+              className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-3 px-2 resize-none max-h-32 text-slate-100 placeholder-slate-500"
+            />
 
-      {/* ── Composer bar (pinned to bottom) ────────────────────────────────── */}
-      <div className="flex-none flex items-end gap-1.5 sm:gap-2 px-2 sm:px-4 py-2 sm:py-3 border-t border-slate-800/60 bg-slate-950">
+            {/* Send Button */}
+            <button
+              onClick={handleSend}
+              disabled={!canSend}
+              className="p-2.5 rounded-xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-400 transition-all disabled:opacity-20 disabled:grayscale active:scale-95 mb-0.5"
+            >
+              <Send size={20} />
+            </button>
+          </div>
+        </div>
+      </footer>
 
-        {/* Camera — auto-sends on capture */}
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={!isActive}
-          title="Snap a math problem"
-          className="
-            flex-none w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center
-            text-sm sm:text-base transition-all duration-150
-            bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200
-            disabled:opacity-30 disabled:cursor-not-allowed
-          "
-          type="button"
-        >
-          📷
-        </button>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={handleImagePick}
-        />
-
-        {/* Voice toggle */}
-        <button
-          onClick={handleVoiceToggle}
-          disabled={!isActive}
-          title={voiceActive ? "Stop voice" : "Speak your math problem"}
-          className={`
-            flex-none w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center
-            text-sm sm:text-base transition-all duration-150
-            ${voiceActive
-              ? "bg-rose-600 text-white ring-2 ring-rose-500/40 animate-pulse"
-              : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200"
-            }
-            disabled:opacity-30 disabled:cursor-not-allowed
-          `}
-          type="button"
-        >
-          {voiceActive ? "⏹" : "🎙"}
-        </button>
-
-        {/* Text input */}
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={!isActive}
-          rows={1}
-          placeholder={
-            voiceActive
-              ? "Listening… speak or type"
-              : isActive
-              ? "Type a math problem…"
-              : "Tap Start to begin"
-          }
-          dir="auto"
-          className="
-            flex-1 resize-none rounded-xl bg-slate-800 border border-slate-700
-            px-3 sm:px-4 py-2 sm:py-2.5 text-[13px] sm:text-sm text-slate-100 placeholder-slate-500
-            focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600
-            disabled:opacity-40 transition-colors leading-relaxed max-h-28 overflow-y-auto
-          "
-        />
-
-        {/* Send */}
-        <button
-          onClick={handleSend}
-          disabled={!canSend}
-          title="Send"
-          className="
-            flex-none w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-600 hover:bg-emerald-500
-            text-white flex items-center justify-center font-bold text-sm sm:text-base
-            transition-all duration-150
-            disabled:opacity-30 disabled:cursor-not-allowed active:scale-95
-          "
-          type="button"
-        >
-          ↑
-        </button>
-      </div>
-
-      {/* ── Help Panel (modal) ──────────────────────────────────────────────── */}
+      {/* ── Modals ────────────────────────────────────────────────────────────────── */}
       <HelpPanel
         isOpen={helpPanelOpen}
         onClose={() => setHelpPanelOpen(false)}
@@ -527,7 +487,6 @@ export default function SessionPage() {
         voiceActive={voiceActive}
         stubMode={false}
       />
-
     </div>
   );
 }

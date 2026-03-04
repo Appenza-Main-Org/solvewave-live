@@ -2,6 +2,8 @@
 
 import { useEffect, useRef } from "react";
 import katex from "katex";
+import { motion, AnimatePresence } from "framer-motion";
+import { Clock, User, Sparkles, ImageIcon, CheckCircle2, MoreHorizontal } from "lucide-react";
 
 export interface TranscriptEntry {
   role: "tutor" | "student";
@@ -69,17 +71,17 @@ function renderTextLines(text: string) {
     const stepMatch = trimmed.match(/^(\d+)[\.\)]\s+(.*)$/);
     if (stepMatch) {
       return (
-        <p key={idx} className="flex gap-2">
-          <span className="text-xs font-semibold text-emerald-300 mt-[1px] shrink-0">
-            {stepMatch[1]}.
+        <div key={idx} className="flex gap-3 group/step py-1">
+          <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/20 shrink-0 mt-0.5 group-hover/step:bg-emerald-500 group-hover/step:text-white transition-colors">
+            {stepMatch[1]}
           </span>
           <span
-            className="flex-1"
+            className="flex-1 pt-0.5"
             dangerouslySetInnerHTML={{
               __html: processInlineContent(stepMatch[2]),
             }}
           />
-        </p>
+        </div>
       );
     }
 
@@ -87,15 +89,15 @@ function renderTextLines(text: string) {
     const bulletMatch = trimmed.match(/^[\*\-]\s+(.*)$/);
     if (bulletMatch) {
       return (
-        <p key={idx} className="flex gap-2 ml-1">
-          <span className="text-emerald-400 mt-[1px] shrink-0">·</span>
+        <div key={idx} className="flex gap-3 ml-2 py-0.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/40 mt-2 shrink-0" />
           <span
             className="flex-1"
             dangerouslySetInnerHTML={{
               __html: processInlineContent(bulletMatch[1]),
             }}
           />
-        </p>
+        </div>
       );
     }
 
@@ -103,6 +105,7 @@ function renderTextLines(text: string) {
     return (
       <p
         key={idx}
+        className="leading-relaxed"
         dangerouslySetInnerHTML={{ __html: processInlineContent(line) }}
       />
     );
@@ -121,141 +124,150 @@ export default function TranscriptPanel({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [entries, isThinking]);
 
-  // ── Empty state ──────────────────────────────────────────────────────────────
   if (entries.length === 0 && !isThinking) {
     return (
-      <div className="flex flex-col h-full items-center justify-center gap-3 sm:gap-4 text-center px-4 sm:px-6">
-        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-emerald-800 to-emerald-600 flex items-center justify-center text-2xl sm:text-3xl shadow-lg">
+      <div className="flex flex-col h-full items-center justify-center p-8 text-center bg-slate-900/20 backdrop-blur-sm rounded-3xl border border-white/5 m-4">
+        <motion.div 
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="w-20 h-20 rounded-3xl bg-emerald-500/10 flex items-center justify-center text-4xl mb-6 border border-emerald-500/20 shadow-2xl shadow-emerald-500/10"
+        >
           🎓
-        </div>
-        <div>
-          <p className="text-sm sm:text-base font-semibold text-slate-300">
-            Your math tutor is ready
-          </p>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Tap <span className="text-emerald-400 font-semibold">Start</span> then speak or type a problem
-          </p>
-        </div>
-        <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2 mt-1 sm:mt-2 text-[11px] sm:text-xs text-slate-600 max-w-xl">
-          <span className="px-2 sm:px-2.5 py-1 rounded-full bg-slate-800/80">
-            Solve 3x + 5 = 14
-          </span>
-          <span className="px-2 sm:px-2.5 py-1 rounded-full bg-slate-800/80">
-            Explain derivatives
-          </span>
-          <span className="hidden sm:inline-block px-2.5 py-1 rounded-full bg-slate-800/80">
-            Check my fraction steps
-          </span>
-          <span className="px-2 sm:px-2.5 py-1 rounded-full bg-slate-800/80">
-            📷 Snap homework
-          </span>
+        </motion.div>
+        <h2 className="text-xl font-bold text-white mb-2">Your Math Tutor is Ready</h2>
+        <p className="text-slate-400 max-w-sm mb-8">
+          Start a session to solve equations, explain concepts, or check your homework in real-time.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-md">
+          {[
+            "Solve 3x + 5 = 14",
+            "Explain derivatives",
+            "Check my fraction steps",
+            "Snap a problem 📷"
+          ].map((text, i) => (
+            <div key={i} className="px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-xs font-medium text-slate-300">
+              {text}
+            </div>
+          ))}
         </div>
       </div>
     );
   }
 
-  // ── Conversation ─────────────────────────────────────────────────────────────
   return (
-    <div className="h-full overflow-y-auto px-3 sm:px-4 pt-3 sm:pt-4 pb-3 space-y-3 sm:space-y-4">
+    <div className="h-full overflow-y-auto overflow-x-hidden scroll-smooth custom-scrollbar px-4 py-6 space-y-8">
+      <AnimatePresence initial={false}>
+        {entries.map((e, i) => {
+          const isRecap = e.role === "tutor" && e.text.trim().startsWith("✓");
+          const isPartial = e.partial === true;
 
-      {entries.map((e, i) => {
-        const isRecap =
-          e.role === "tutor" && e.text.trim().startsWith("✓");
-        const isPartial = e.partial === true;
-
-        return (
-          <div
-            key={i}
-            className={`flex gap-2 sm:gap-3 ${e.role === "student" ? "flex-row-reverse" : "flex-row"}`}
-          >
-            {/* Avatar */}
-            <div
-              className={`
-                flex-none w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center
-                text-[10px] sm:text-xs font-bold shrink-0 mt-0.5
-                ${e.role === "tutor"
-                  ? "bg-emerald-700 text-emerald-100"
-                  : "bg-slate-600 text-slate-200"
-                }
-              `}
+          return (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              className={`flex w-full group ${e.role === "student" ? "justify-end" : "justify-start"}`}
             >
-              {e.role === "tutor" ? "F" : "U"}
-            </div>
+              <div className={`flex max-w-[90%] sm:max-w-[80%] gap-3 ${e.role === "student" ? "flex-row-reverse" : "flex-row"}`}>
+                
+                {/* Avatar Column */}
+                <div className="flex-none flex flex-col items-center gap-2">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center border shadow-sm transition-transform group-hover:scale-110 ${
+                    e.role === "tutor" 
+                      ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
+                      : "bg-slate-800 border-white/10 text-slate-400"
+                  }`}>
+                    {e.role === "tutor" ? <Sparkles size={16} /> : <User size={16} />}
+                  </div>
+                  <div className="w-[2px] flex-1 bg-gradient-to-b from-white/5 to-transparent rounded-full" />
+                </div>
 
-            {/* Label + bubble + timestamp */}
-            <div
-              className={`flex flex-col gap-0.5 sm:gap-1 max-w-[85%] sm:max-w-[76%] ${
-                e.role === "student" ? "items-end" : "items-start"
-              }`}
-            >
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="text-[10px] sm:text-[11px] font-medium tracking-wide text-slate-500 uppercase">
-                  {e.role === "tutor" ? "Faheem" : "You"}
-                </span>
-                {isRecap && (
-                  <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.14em] text-emerald-300 bg-emerald-900/40 border border-emerald-500/40 rounded-full px-1.5 sm:px-2 py-0.5">
-                    Recap
-                  </span>
-                )}
-                {isPartial && (
-                  <span className="text-[10px] text-slate-500 italic">
-                    listening…
-                  </span>
-                )}
-              </div>
-              <div
-                className={`
-                  px-3 sm:px-4 py-2 sm:py-3 rounded-2xl text-[13px] sm:text-sm leading-relaxed shadow-sm
-                  ${
-                    isPartial
-                      ? "bg-emerald-700/10 text-emerald-100/70 italic rounded-tr-lg border border-emerald-700/30"
+                {/* Content Column */}
+                <div className={`flex flex-col gap-2 ${e.role === "student" ? "items-end text-right" : "items-start text-left"}`}>
+                  
+                  {/* Metadata */}
+                  <div className="flex items-center gap-2 px-1">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                      {e.role === "tutor" ? "Faheem" : "You"}
+                    </span>
+                    {isRecap && (
+                      <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                        <CheckCircle2 size={10} /> Recap
+                      </span>
+                    )}
+                    <span className="text-[10px] text-slate-600 font-mono">{e.timestamp}</span>
+                  </div>
+
+                  {/* Message Bubble/Canvas */}
+                  <div className={`
+                    relative px-5 py-4 rounded-3xl text-sm leading-relaxed transition-all
+                    ${isPartial 
+                      ? "bg-emerald-500/5 text-emerald-100/60 italic border border-emerald-500/10 rounded-tr-lg" 
                       : isRecap
-                      ? "bg-slate-900 text-slate-100 border border-emerald-600/70"
+                      ? "bg-slate-900 border-2 border-emerald-500/30 text-slate-100 shadow-xl shadow-emerald-500/5"
                       : e.role === "tutor"
-                      ? "bg-slate-800/95 text-slate-100 rounded-tl-lg border border-slate-700/60"
-                      : "bg-emerald-700/15 text-emerald-50 rounded-tr-lg border border-emerald-700/40"
-                  }
-                `}
-              >
-                {e.imageUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={e.imageUrl}
-                    alt="Shared image"
-                    className="rounded-xl max-h-36 sm:max-h-48 mb-2 sm:mb-2.5 w-full object-contain bg-slate-900"
-                  />
-                )}
-                <div className="space-y-1 sm:space-y-1.5 whitespace-pre-wrap break-words">
-                  {renderTextLines(e.text)}
+                      ? "bg-white/[0.03] border border-white/10 text-slate-100 rounded-tl-lg backdrop-blur-sm"
+                      : "bg-emerald-500 text-white shadow-lg shadow-emerald-500/10 rounded-tr-lg"
+                    }
+                  `}>
+                    {e.imageUrl && (
+                      <div className="relative mb-4 group/img">
+                        <img
+                          src={e.imageUrl}
+                          alt="Math Problem"
+                          className="rounded-2xl max-h-64 w-full object-contain bg-black/40 border border-white/10 shadow-inner"
+                        />
+                        <div className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 backdrop-blur-md text-white/80 opacity-0 group-hover/img:opacity-100 transition-opacity">
+                          <ImageIcon size={14} />
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className={`space-y-2 whitespace-pre-wrap break-words ${e.role === "student" ? "text-white" : "text-slate-100"}`}>
+                      {renderTextLines(e.text)}
+                    </div>
+
+                    {isPartial && (
+                      <motion.div 
+                        animate={{ opacity: [0.4, 1, 0.4] }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                        className="absolute -bottom-5 right-0 text-[10px] text-emerald-500/60 font-medium"
+                      >
+                        Processing audio...
+                      </motion.div>
+                    )}
+                  </div>
                 </div>
               </div>
-              <span className="text-[10px] sm:text-xs text-slate-600 px-1">{e.timestamp}</span>
-            </div>
-          </div>
-        );
-      })}
+            </motion.div>
+          );
+        })}
 
-      {/* ── Thinking indicator ─────────────────────────────────────────────── */}
-      {isThinking && (
-        <div className="flex gap-2 sm:gap-3">
-          <div className="flex-none w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-700 text-emerald-100 flex items-center justify-center text-[10px] sm:text-xs font-bold shrink-0 mt-0.5">
-            F
-          </div>
-          <div className="px-3 sm:px-4 py-2 sm:py-3 rounded-2xl rounded-tl-sm bg-slate-800/90 border border-slate-700/40">
-            <div className="flex gap-1.5 items-center h-4">
+        {/* Thinking State */}
+        {isThinking && (
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex gap-3"
+          >
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+              <Sparkles size={16} className="animate-spin-slow" />
+            </div>
+            <div className="px-5 py-4 rounded-3xl rounded-tl-sm bg-white/[0.03] border border-white/10 flex gap-1.5 items-center">
               {[0, 1, 2].map((i) => (
-                <span
+                <motion.span
                   key={i}
-                  className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-bounce"
-                  style={{ animationDelay: `${i * 160}ms` }}
+                  animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
+                  transition={{ duration: 1, repeat: Infinity, delay: i * 0.2 }}
+                  className="w-1.5 h-1.5 bg-emerald-400 rounded-full"
                 />
               ))}
             </div>
-          </div>
-        </div>
-      )}
-
-      <div ref={bottomRef} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <div ref={bottomRef} className="h-4" />
     </div>
   );
 }
