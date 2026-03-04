@@ -155,7 +155,7 @@ export default function TranscriptPanel({
   }
 
   return (
-    <div className="h-full overflow-y-auto overflow-x-hidden scroll-smooth custom-scrollbar px-4 py-6 space-y-8">
+    <div className="h-full overflow-y-auto overflow-x-hidden scroll-smooth custom-scrollbar px-4 py-8 space-y-12">
       <AnimatePresence initial={false}>
         {entries.map((e, i) => {
           const isRecap = e.role === "tutor" && e.text.trim().startsWith("✓");
@@ -164,77 +164,65 @@ export default function TranscriptPanel({
           return (
             <motion.div
               key={i}
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              className={`flex w-full group ${e.role === "student" ? "justify-end" : "justify-start"}`}
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              className={`flex w-full ${e.role === "student" ? "justify-end" : "justify-start"}`}
             >
-              <div className={`flex max-w-[90%] sm:max-w-[80%] gap-3 ${e.role === "student" ? "flex-row-reverse" : "flex-row"}`}>
+              <div className={`flex gap-6 max-w-[95%] sm:max-w-[85%] ${e.role === "student" ? "flex-row-reverse" : "flex-row"}`}>
                 
-                {/* Avatar Column */}
-                <div className="flex-none flex flex-col items-center gap-2">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center border shadow-sm transition-transform group-hover:scale-110 ${
-                    e.role === "tutor" 
-                      ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" 
-                      : "bg-slate-800 border-white/10 text-slate-400"
-                  }`}>
-                    {e.role === "tutor" ? <Sparkles size={16} /> : <User size={16} />}
-                  </div>
-                  <div className="w-[2px] flex-1 bg-gradient-to-b from-white/5 to-transparent rounded-full" />
+                {/* Avatar / Side Indicator */}
+                <div className="flex-none flex flex-col items-center">
+                  <div className={`w-1 h-full rounded-full ${
+                    e.role === "tutor" ? "bg-faheem-emerald/30 shadow-[0_0_10px_rgba(16,185,129,0.2)]" : "bg-obsidian-700"
+                  }`} />
                 </div>
 
-                {/* Content Column */}
-                <div className={`flex flex-col gap-2 ${e.role === "student" ? "items-end text-right" : "items-start text-left"}`}>
+                {/* Content Area */}
+                <div className={`flex flex-col gap-3 ${e.role === "student" ? "items-end" : "items-start"}`}>
                   
-                  {/* Metadata */}
-                  <div className="flex items-center gap-2 px-1">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                      {e.role === "tutor" ? "Faheem" : "You"}
+                  {/* Role Label */}
+                  <div className="flex items-center gap-3 px-1">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-obsidian-500">
+                      {e.role === "tutor" ? "Faheem Math" : "Student"}
                     </span>
                     {isRecap && (
-                      <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                        <CheckCircle2 size={10} /> Recap
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-faheem-emerald bg-faheem-emerald/10 px-2 py-0.5 rounded border border-faheem-emerald/20">
+                        Concept Recap
                       </span>
                     )}
-                    <span className="text-[10px] text-slate-600 font-mono">{e.timestamp}</span>
+                    <span className="text-[10px] text-obsidian-600 font-mono opacity-60">{e.timestamp}</span>
                   </div>
 
-                  {/* Message Bubble/Canvas */}
+                  {/* Message Surface */}
                   <div className={`
-                    relative px-5 py-4 rounded-3xl text-sm leading-relaxed transition-all
-                    ${isPartial 
-                      ? "bg-emerald-500/5 text-emerald-100/60 italic border border-emerald-500/10 rounded-tr-lg" 
-                      : isRecap
-                      ? "bg-slate-900 border-2 border-emerald-500/30 text-slate-100 shadow-xl shadow-emerald-500/5"
-                      : e.role === "tutor"
-                      ? "bg-white/[0.03] border border-white/10 text-slate-100 rounded-tl-lg backdrop-blur-sm"
-                      : "bg-emerald-500 text-white shadow-lg shadow-emerald-500/10 rounded-tr-lg"
+                    relative text-obsidian-50 leading-relaxed
+                    ${e.role === "tutor" 
+                      ? "text-[15px] sm:text-[16px]" 
+                      : "text-[14px] px-5 py-3 rounded-2xl bg-obsidian-900/50 border border-obsidian-800"
                     }
                   `}>
                     {e.imageUrl && (
-                      <div className="relative mb-4 group/img">
+                      <div className="mb-6 rounded-2xl overflow-hidden border border-obsidian-800 shadow-2xl">
                         <img
                           src={e.imageUrl}
-                          alt="Math Problem"
-                          className="rounded-2xl max-h-64 w-full object-contain bg-black/40 border border-white/10 shadow-inner"
+                          alt="Input"
+                          className="max-h-72 w-full object-contain bg-obsidian-950"
                         />
-                        <div className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 backdrop-blur-md text-white/80 opacity-0 group-hover/img:opacity-100 transition-opacity">
-                          <ImageIcon size={14} />
-                        </div>
                       </div>
                     )}
                     
-                    <div className={`space-y-2 whitespace-pre-wrap break-words ${e.role === "student" ? "text-white" : "text-slate-100"}`}>
+                    <div className="space-y-4">
                       {renderTextLines(e.text)}
                     </div>
 
                     {isPartial && (
                       <motion.div 
-                        animate={{ opacity: [0.4, 1, 0.4] }}
+                        animate={{ opacity: [0.4, 0.8, 0.4] }}
                         transition={{ duration: 1.5, repeat: Infinity }}
-                        className="absolute -bottom-5 right-0 text-[10px] text-emerald-500/60 font-medium"
+                        className="mt-4 text-[11px] text-faheem-sky font-medium uppercase tracking-widest"
                       >
-                        Processing audio...
+                        AI Processing...
                       </motion.div>
                     )}
                   </div>

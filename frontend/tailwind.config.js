@@ -1,5 +1,3 @@
-const path = require("path");
-
 const { fontFamily } = require("tailwindcss/defaultTheme");
 
 /** @type {import('tailwindcss').Config} */
@@ -12,31 +10,36 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        background: "#020617", // Deep Obsidian
+        foreground: "#F8FAFC", // Ghost White
+        obsidian: {
+          50: "#F8FAFC",
+          100: "#F1F5F9",
+          200: "#E2E8F0",
+          300: "#CBD5E1",
+          400: "#94A3B8",
+          500: "#64748B",
+          600: "#475569",
+          700: "#334155",
+          800: "#1E293B",
+          900: "#0F172A", // Glass Surface
+          950: "#020617", // Deep Obsidian
+        },
         faheem: {
-          50: "#f0fdf4",
-          100: "#dcfce7",
-          200: "#bbf7d0",
-          300: "#86efac",
-          400: "#4ade80",
-          500: "#22c55e",
-          600: "#16a34a",
-          700: "#15803d",
-          800: "#166534",
-          900: "#14532d",
-          950: "#052e16",
+          emerald: "#10B981",
+          sky: "#38BDF8",
+          rose: "#F43F5E",
+          purple: "#A855F7",
+          orange: "#F97316",
         },
         ai: {
-          idle: "#64748b",      // Slate 500
-          connecting: "#facc15", // Yellow 400
-          live: "#10b981",       // Emerald 500
-          thinking: "#38bdf8",   // Sky 400
-          seeing: "#a78bfa",     // Violet 400
-          listening: "#fb7185",  // Rose 400
-          speaking: "#10b981",   // Emerald 500
-          interrupted: "#fb923c", // Orange 400
-          error: "#ef4444",      // Red 500
+          ready: "#64748B",
+          listening: "#F43F5E",
+          seeing: "#A855F7",
+          thinking: "#38BDF8",
+          speaking: "#10B981",
+          interrupted: "#F97316",
+          error: "#EF4444",
         },
       },
       fontFamily: {
@@ -47,16 +50,25 @@ module.exports = {
         "pulse-slow": "pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite",
         "orb-float": "orb-float 6s ease-in-out infinite",
         "ripple": "ripple 2s cubic-bezier(0, 0.2, 0.8, 1) infinite",
+        "spin-slow": "spin 8s linear infinite",
+        "wave": "wave 1.2s ease-in-out infinite",
       },
       keyframes: {
         "orb-float": {
-          "0%, 100%": { transform: "translateY(0)" },
-          "50%": { transform: "translateY(-10px)" },
+          "0%, 100%": { transform: "translateY(0) scale(1)" },
+          "50%": { transform: "translateY(-15px) scale(1.05)" },
         },
         ripple: {
-          "0%": { transform: "scale(0.8)", opacity: "1" },
-          "100%": { transform: "scale(2.4)", opacity: "0" },
+          "0%": { transform: "scale(0.8)", opacity: "0.5" },
+          "100%": { transform: "scale(2.5)", opacity: "0" },
         },
+        wave: {
+          "0%, 100%": { transform: "scaleY(0.5)" },
+          "50%": { transform: "scaleY(1.5)" },
+        },
+      },
+      backdropBlur: {
+        xs: "2px",
       },
     },
   },

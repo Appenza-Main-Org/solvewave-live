@@ -11,7 +11,8 @@ import {
   ChevronRight, 
   HelpCircle, 
   Timer,
-  Zap
+  Zap,
+  LayoutDashboard
 } from "lucide-react";
 import { useSessionSocket, LiveState } from "@/hooks/useSessionSocket";
 import { useVoiceTranscription } from "@/hooks/useVoiceTranscription";
@@ -267,45 +268,54 @@ export default function SessionPage() {
 
   const liveStateColor = useMemo(() => {
     switch (liveState) {
-      case "idle": return "#64748b";
-      case "connecting": return "#facc15";
-      case "thinking": return "#38bdf8";
-      case "seeing": return "#a78bfa";
-      case "listening": return "#fb7185";
-      case "speaking": return "#10b981";
-      case "interrupted": return "#fb923c";
-      case "error": return "#ef4444";
-      default: return "#10b981";
+      case "idle": return "#64748B";
+      case "connecting": return "#FACC15";
+      case "thinking": return "#38BDF8";
+      case "seeing": return "#A855F7";
+      case "listening": return "#F43F5E";
+      case "speaking": return "#10B981";
+      case "interrupted": return "#F97316";
+      case "error": return "#EF4444";
+      default: return "#10B981";
     }
   }, [liveState]);
 
   return (
-    <div className="flex flex-col h-dvh bg-slate-950 text-slate-100 overflow-hidden font-sans relative">
+    <div className="flex flex-col h-dvh bg-background text-foreground overflow-hidden font-sans relative">
+      {/* ── Background Logic Grid ── */}
+      <div className="fixed inset-0 pointer-events-none z-0 opacity-[0.03]" 
+           style={{ backgroundImage: `radial-gradient(${liveStateColor} 1px, transparent 1px)`, backgroundSize: '40px 40px' }} />
+
       {/* ── Background Glow ── */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         <motion.div 
           animate={{
             backgroundColor: liveStateColor,
-            opacity: [0.05, 0.08, 0.05],
+            opacity: [0.03, 0.06, 0.03],
           }}
-          transition={{ duration: 1, ease: "easeInOut" }}
-          className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full blur-[120px]" 
+          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute -top-[10%] -left-[10%] w-[60%] h-[60%] rounded-full blur-[160px]" 
         />
       </div>
 
       {/* ── Modern Header ────────────────────────────────────────────────────────── */}
-      <header className="flex-none h-16 border-b border-white/5 bg-slate-950/50 backdrop-blur-xl z-20 px-4 sm:px-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-            <FaheemLogo size={24} />
+      <header className="flex-none h-16 border-b border-white/5 bg-obsidian-950/40 backdrop-blur-2xl z-20 px-4 sm:px-8 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="p-2 rounded-2xl bg-faheem-emerald/10 border border-faheem-emerald/20 shadow-[0_0_15px_rgba(16,185,129,0.1)] transition-transform hover:scale-105">
+            <FaheemLogo size={28} />
           </div>
-          <div>
-            <h1 className="text-sm font-bold tracking-tight">
-              Faheem <span className="text-emerald-400">Math</span>
+          <div className="hidden sm:block">
+            <h1 className="text-sm font-bold tracking-[0.1em] uppercase text-obsidian-100">
+              Faheem <span className="text-faheem-emerald">Math</span>
             </h1>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <div className={`w-1.5 h-1.5 rounded-full ${state.dot} ${state.pulse ? "animate-pulse" : ""}`} />
-              <span className="text-[10px] uppercase tracking-wider font-semibold text-slate-500">{state.label}</span>
+            <div className="flex items-center gap-2 mt-0.5">
+              <motion.div 
+                animate={{ scale: [1, 1.2, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="w-1.5 h-1.5 rounded-full" 
+                style={{ backgroundColor: liveStateColor }}
+              />
+              <span className="text-[9px] uppercase tracking-[0.2em] font-bold text-obsidian-500">{state.label}</span>
             </div>
           </div>
         </div>
@@ -314,17 +324,17 @@ export default function SessionPage() {
           <ModeSelector selected={mode} onChange={handleModeChange} />
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-3">
           {isActive && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
-              <Timer size={14} className="text-slate-400" />
-              <span className="text-xs font-mono text-slate-300">{timerDisplay}</span>
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-obsidian-900 border border-obsidian-800">
+              <Timer size={14} className="text-faheem-emerald" />
+              <span className="text-xs font-mono font-bold text-obsidian-200">{timerDisplay}</span>
             </div>
           )}
           
           <button
             onClick={() => setHelpPanelOpen(true)}
-            className="p-2 rounded-lg hover:bg-white/5 text-slate-400 transition-colors"
+            className="p-2.5 rounded-xl hover:bg-white/5 text-obsidian-400 transition-all hover:text-white"
           >
             <HelpCircle size={20} />
           </button>
@@ -340,14 +350,14 @@ export default function SessionPage() {
             }}
             disabled={status === "connecting"}
             className={`
-              px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95
+              px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95
               ${isActive 
-                ? "bg-rose-500/10 text-rose-500 border border-rose-500/20 hover:bg-rose-500/20" 
-                : "bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-400"}
+                ? "bg-faheem-rose/10 text-faheem-rose border border-faheem-rose/20 hover:bg-faheem-rose/20" 
+                : "bg-faheem-emerald text-white shadow-2xl shadow-faheem-emerald/20 hover:brightness-110"}
               disabled:opacity-50
             `}
           >
-            {status === "connecting" ? "Connecting..." : isActive ? "End Session" : "Start Session"}
+            {status === "connecting" ? "..." : isActive ? "End Session" : "Start Tutoring"}
           </button>
         </div>
       </header>
@@ -356,31 +366,42 @@ export default function SessionPage() {
       <main className="flex-1 relative flex flex-col lg:flex-row overflow-hidden z-10">
         
         {/* Left: Mode Selector (Mobile Only) */}
-        <div className="md:hidden flex-none p-3 border-b border-white/5">
-          <ModeSelector selected={mode} onChange={handleModeChange} />
+        <div className="md:hidden flex-none p-4 border-b border-white/5 bg-obsidian-950/20">
+          <div className="flex justify-center">
+            <ModeSelector selected={mode} onChange={handleModeChange} />
+          </div>
         </div>
 
         {/* Center: Interaction Space */}
-        <section className="flex-1 flex flex-col min-w-0 bg-gradient-to-b from-transparent to-slate-900/20">
+        <section className="flex-1 flex flex-col min-w-0">
           
           {/* Ambient State Visualization */}
-          <div className="flex-none pt-4 pb-2">
+          <div className="flex-none pt-8 pb-4 relative">
+            <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-faheem-emerald/5 to-transparent opacity-20" />
             <AmbientOrb state={liveState} />
-            <div className="text-center mt-2 px-6">
-              <motion.p 
-                key={liveState}
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-sm text-slate-400 font-medium"
-              >
-                {LIVE_STRIP_COPY[liveState].body}
-              </motion.p>
+            <div className="text-center mt-4 px-8 relative z-10">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={liveState}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="inline-flex flex-col items-center"
+                >
+                  <span className="text-[10px] uppercase tracking-[0.3em] font-black text-faheem-emerald/60 mb-1">
+                    {LIVE_STRIP_COPY[liveState].title}
+                  </span>
+                  <p className="text-sm text-obsidian-300 font-medium max-w-xs leading-relaxed">
+                    {LIVE_STRIP_COPY[liveState].body}
+                  </p>
+                </motion.div>
+              </AnimatePresence>
             </div>
           </div>
 
           {/* Transcript Canvas */}
-          <div className="flex-1 min-h-0 px-4 sm:px-6 pb-4">
-            <div className="h-full rounded-2xl bg-white/[0.02] border border-white/5 backdrop-blur-sm overflow-hidden shadow-2xl relative">
+          <div className="flex-1 min-h-0 px-4 sm:px-12 pb-8">
+            <div className="h-full rounded-[2rem] bg-obsidian-900/20 border border-white/[0.03] backdrop-blur-sm overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)] relative">
                <TranscriptPanel
                 entries={transcript}
                 isThinking={isThinking && isActive}
@@ -390,10 +411,13 @@ export default function SessionPage() {
         </section>
 
         {/* Right: Tools & Context (Desktop Only) */}
-        <aside className="hidden xl:flex w-80 flex-none flex-col gap-4 p-6 border-l border-white/5 bg-slate-950/30">
-          <div className="space-y-6">
+        <aside className="hidden xl:flex w-[380px] flex-none flex-col gap-8 p-10 border-l border-white/5 bg-obsidian-950/20 backdrop-blur-md">
+          <div className="space-y-10">
             <section>
-              <h3 className="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-500 mb-4">Study Tools</h3>
+              <h3 className="text-[10px] uppercase tracking-[0.3em] font-black text-obsidian-500 mb-6 flex items-center gap-3">
+                <LayoutDashboard size={12} className="text-faheem-emerald" />
+                Study Curriculum
+              </h3>
               <ExamplesPanel
                 mode={mode}
                 onExampleClick={handleExampleClick}
@@ -401,13 +425,16 @@ export default function SessionPage() {
               />
             </section>
             
-            <section className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10">
-              <div className="flex items-center gap-2 text-emerald-400 mb-2">
-                <Zap size={16} />
-                <span className="text-xs font-bold uppercase tracking-wider">Quick Tip</span>
+            <section className="p-6 rounded-[2rem] bg-faheem-emerald/5 border border-faheem-emerald/10 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <Zap size={40} className="text-faheem-emerald" />
               </div>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                You can interrupt Faheem at any time just by speaking. He'll stop and listen to your follow-up immediately.
+              <div className="flex items-center gap-3 text-faheem-emerald mb-3">
+                <Zap size={16} fill="currentColor" />
+                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Quick Tip</span>
+              </div>
+              <p className="text-[12px] text-obsidian-400 leading-relaxed font-medium">
+                Faheem is naturally interruptible. Just start speaking whenever you have a question or need clarification on a step.
               </p>
             </section>
           </div>
@@ -415,33 +442,33 @@ export default function SessionPage() {
       </main>
 
       {/* ── Floating Composer ────────────────────────────────────────────────────── */}
-      <footer className="flex-none p-4 sm:p-6 z-20">
+      <footer className="flex-none p-6 sm:p-10 z-20">
         <div className="max-w-4xl mx-auto relative">
-          <div className="absolute inset-0 bg-emerald-500/5 blur-3xl rounded-full opacity-50 pointer-events-none" />
+          <div className="absolute inset-x-0 -top-20 h-40 bg-gradient-to-t from-background to-transparent pointer-events-none" />
           
-          <div className="relative flex items-end gap-2 p-2 rounded-2xl bg-slate-900/80 border border-white/10 backdrop-blur-2xl shadow-2xl focus-within:border-emerald-500/50 transition-all">
+          <div className="relative flex items-end gap-3 p-3 rounded-[2.5rem] bg-obsidian-900/60 border border-white/5 backdrop-blur-3xl shadow-[0_30px_60px_rgba(0,0,0,0.5)] focus-within:border-faheem-emerald/30 transition-all duration-500">
             
             {/* Action Buttons */}
-            <div className="flex items-center gap-1.5 pb-1">
+            <div className="flex items-center gap-2 pb-1 px-1">
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={!isActive}
-                className="p-2.5 rounded-xl bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-20"
+                className="p-3 rounded-2xl bg-white/5 text-obsidian-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-20 shadow-sm"
               >
-                <Camera size={20} />
+                <Camera size={22} />
               </button>
               
               <button
                 onClick={handleVoiceToggle}
                 disabled={!isActive}
                 className={`
-                  p-2.5 rounded-xl transition-all disabled:opacity-20
+                  p-3 rounded-2xl transition-all duration-500 disabled:opacity-20 shadow-lg
                   ${voiceActive 
-                    ? "bg-rose-500 text-white shadow-lg shadow-rose-500/20" 
-                    : "bg-white/5 text-slate-400 hover:text-white hover:bg-white/10"}
+                    ? "bg-faheem-rose text-white shadow-faheem-rose/20 ring-4 ring-faheem-rose/20" 
+                    : "bg-white/5 text-obsidian-400 hover:text-white hover:bg-white/10"}
                 `}
               >
-                {voiceActive ? <MicOff size={20} /> : <Mic size={20} />}
+                {voiceActive ? <MicOff size={22} /> : <Mic size={22} />}
               </button>
             </div>
 
@@ -462,18 +489,18 @@ export default function SessionPage() {
               disabled={!isActive}
               rows={1}
               placeholder={
-                voiceActive ? "Listening..." : isActive ? "Ask a math question..." : "Start session to chat"
+                voiceActive ? "Listening for your question..." : isActive ? "Ask anything about math..." : "Connect to start your session"
               }
-              className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-3 px-2 resize-none max-h-32 text-slate-100 placeholder-slate-500"
+              className="flex-1 bg-transparent border-none focus:ring-0 text-[15px] py-4 px-2 resize-none max-h-40 text-obsidian-50 placeholder-obsidian-600 font-medium leading-relaxed"
             />
 
             {/* Send Button */}
             <button
               onClick={handleSend}
               disabled={!canSend}
-              className="p-2.5 rounded-xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-400 transition-all disabled:opacity-20 disabled:grayscale active:scale-95 mb-0.5"
+              className="p-3.5 rounded-2xl bg-faheem-emerald text-white shadow-xl shadow-faheem-emerald/20 hover:brightness-110 transition-all disabled:opacity-10 disabled:grayscale active:scale-90 mb-1"
             >
-              <Send size={20} />
+              <Send size={22} strokeWidth={2.5} />
             </button>
           </div>
         </div>

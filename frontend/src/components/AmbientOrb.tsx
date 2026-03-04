@@ -8,115 +8,122 @@ interface AmbientOrbProps {
 }
 
 const STATE_COLORS: Record<LiveState, string> = {
-  idle: "#64748b",
-  connecting: "#facc15",
-  connected: "#10b981",
-  thinking: "#38bdf8",
-  seeing: "#a78bfa",
-  listening: "#fb7185",
-  speaking: "#10b981",
-  interrupted: "#fb923c",
-  error: "#ef4444",
+  idle: "#64748B",        // Slate
+  connecting: "#FACC15",  // Yellow
+  connected: "#10B981",   // Emerald
+  thinking: "#38BDF8",    // Sky
+  seeing: "#A855F7",      // Purple
+  listening: "#F43F5E",   // Rose
+  speaking: "#10B981",    // Emerald
+  interrupted: "#F97316", // Orange
+  error: "#EF4444",       // Red
 };
 
 export default function AmbientOrb({ state }: AmbientOrbProps) {
   const color = STATE_COLORS[state];
 
   return (
-    <div className="relative flex items-center justify-center w-full h-full min-h-[120px] sm:min-h-[160px]">
+    <div className="relative flex items-center justify-center w-full h-full min-h-[140px] sm:min-h-[180px]">
       <AnimatePresence mode="wait">
         <motion.div
           key={state}
-          initial={{ scale: 0.8, opacity: 0 }}
+          initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 1.2, opacity: 0 }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
+          exit={{ scale: 1.1, opacity: 0 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           className="relative"
         >
-          {/* Outer glow rings */}
-          {(state === "listening" || state === "speaking") && (
-            <>
+          {/* Behavior-based background effects */}
+          <AnimatePresence>
+            {state === "listening" && (
               <motion.div
-                animate={{
-                  scale: [1, 1.5, 1],
-                  opacity: [0.3, 0.1, 0.3],
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                }}
-                className="absolute inset-0 rounded-full blur-2xl"
-                style={{ backgroundColor: color }}
-              />
-              <motion.div
-                animate={{
-                  scale: [1, 2, 1],
-                  opacity: [0.2, 0, 0.2],
-                }}
-                transition={{
-                  duration: 3,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                  delay: 0.5,
-                }}
-                className="absolute inset-0 rounded-full blur-3xl"
-                style={{ backgroundColor: color }}
-              />
-            </>
-          )}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 flex items-center justify-center"
+              >
+                {[1, 2, 3].map((i) => (
+                  <motion.div
+                    key={i}
+                    className="absolute w-full h-full rounded-full border border-faheem-rose/30"
+                    animate={{
+                      scale: [1, 2.5],
+                      opacity: [0.5, 0],
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                      delay: i * 0.6,
+                      ease: "easeOut",
+                    }}
+                  />
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          {/* The main orb */}
+          {/* Main Intelligent Orb */}
           <motion.div
             animate={
               state === "thinking"
                 ? {
                     rotate: 360,
+                    scale: [1, 1.05, 1],
+                  }
+                : state === "speaking"
+                ? {
                     scale: [1, 1.1, 1],
                   }
                 : state === "listening"
                 ? {
                     scale: [1, 1.15, 1],
                   }
-                : state === "speaking"
-                ? {
-                    scale: [1, 1.1, 1],
-                  }
                 : {
-                    y: [0, -5, 0],
+                    y: [0, -10, 0],
                   }
             }
             transition={
               state === "thinking"
                 ? {
-                    rotate: { duration: 3, repeat: Infinity, ease: "linear" },
+                    rotate: { duration: 4, repeat: Infinity, ease: "linear" },
                     scale: { duration: 2, repeat: Infinity, ease: "easeInOut" },
                   }
                 : {
-                    duration: 4,
+                    duration: 5,
                     repeat: Infinity,
                     ease: "easeInOut",
                   }
             }
             style={{
               backgroundColor: color,
-              boxShadow: `0 0 40px ${color}66`,
+              boxShadow: `0 0 60px ${color}44, inset 0 0 20px rgba(255,255,255,0.2)`,
             }}
             className={`
-              w-16 h-16 sm:w-24 sm:h-24 rounded-full
+              w-20 h-20 sm:w-28 sm:h-28 rounded-full
               flex items-center justify-center
-              relative z-10
-              ${state === "thinking" ? "border-t-4 border-white/40" : ""}
+              relative z-10 overflow-hidden
+              border border-white/10
             `}
           >
-            {/* Inner highlights */}
-            <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-black/20 via-transparent to-white/30" />
-            <div className="absolute top-2 left-4 w-4 h-4 rounded-full bg-white/20 blur-sm" />
+            {/* Intelligent Core Surface */}
+            <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-black/30" />
+            
+            {/* State-specific textures/visuals */}
+            {state === "thinking" && (
+              <div className="absolute inset-0 opacity-40">
+                <div className="w-full h-full animate-spin-slow border-2 border-dashed border-white/30 rounded-full scale-75" />
+              </div>
+            )}
 
-            {/* State icons or symbols could go here */}
-            <div className="text-2xl sm:text-3xl filter drop-shadow-md">
-              {state === "idle" && "💤"}
-              {state === "connecting" && "⏳"}
+            {/* State Icon/Symbol */}
+            <motion.div 
+              key={state}
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="text-3xl sm:text-4xl filter drop-shadow-lg z-20"
+            >
+              {state === "idle" && "•"}
+              {state === "connecting" && "⌛"}
               {state === "connected" && "✨"}
               {state === "thinking" && "🧠"}
               {state === "seeing" && "📷"}
@@ -124,7 +131,7 @@ export default function AmbientOrb({ state }: AmbientOrbProps) {
               {state === "speaking" && "💬"}
               {state === "interrupted" && "✋"}
               {state === "error" && "⚠️"}
-            </div>
+            </motion.div>
           </motion.div>
         </motion.div>
       </AnimatePresence>
