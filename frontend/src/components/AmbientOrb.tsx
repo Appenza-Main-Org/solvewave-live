@@ -23,7 +23,7 @@ export default function AmbientOrb({ state }: AmbientOrbProps) {
   const color = STATE_COLORS[state];
 
   return (
-    <div className="relative flex items-center justify-center w-full h-full min-h-[140px] sm:min-h-[180px]">
+    <div className="relative flex items-center justify-center w-full h-full min-h-[120px] sm:min-h-[140px]">
       <AnimatePresence mode="wait">
         <motion.div
           key={state}
@@ -47,7 +47,7 @@ export default function AmbientOrb({ state }: AmbientOrbProps) {
                     key={i}
                     className="absolute w-full h-full rounded-full border border-faheem-rose/30"
                     animate={{
-                      scale: [1, 2.5],
+                      scale: [1, 1.8],
                       opacity: [0.5, 0],
                     }}
                     transition={{
@@ -72,14 +72,14 @@ export default function AmbientOrb({ state }: AmbientOrbProps) {
                   }
                 : state === "speaking"
                 ? {
-                    scale: [1, 1.1, 1],
+                    scale: [1, 1.08, 1],
                   }
                 : state === "listening"
                 ? {
-                    scale: [1, 1.15, 1],
+                    scale: [1, 1.1, 1],
                   }
                 : {
-                    y: [0, -10, 0],
+                    y: [0, -8, 0],
                   }
             }
             transition={
@@ -96,10 +96,10 @@ export default function AmbientOrb({ state }: AmbientOrbProps) {
             }
             style={{
               backgroundColor: color,
-              boxShadow: `0 0 60px ${color}44, inset 0 0 20px rgba(255,255,255,0.2)`,
+              boxShadow: `0 0 40px ${color}33, inset 0 0 15px rgba(255,255,255,0.2)`,
             }}
             className={`
-              w-20 h-20 sm:w-28 sm:h-28 rounded-full
+              w-16 h-16 sm:w-20 h-20 rounded-full
               flex items-center justify-center
               relative z-10 overflow-hidden
               border border-white/10

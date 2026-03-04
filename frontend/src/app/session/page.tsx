@@ -373,25 +373,25 @@ export default function SessionPage() {
         </div>
 
         {/* Center: Interaction Space */}
-        <section className="flex-1 flex flex-col min-w-0">
+        <section className="flex-1 flex flex-col min-w-0 relative">
           
-          {/* Ambient State Visualization */}
-          <div className="flex-none pt-8 pb-4 relative">
+          {/* Ambient State Visualization - Reduced padding and fixed height to prevent overlap */}
+          <div className="flex-none h-48 sm:h-56 flex flex-col items-center justify-center relative z-20">
             <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-faheem-emerald/5 to-transparent opacity-20" />
             <AmbientOrb state={liveState} />
-            <div className="text-center mt-4 px-8 relative z-10">
+            <div className="text-center mt-2 px-8 relative z-10 h-12 flex flex-col items-center justify-center">
               <AnimatePresence mode="wait">
                 <motion.div
                   key={liveState}
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
+                  exit={{ opacity: 0, y: -5 }}
                   className="inline-flex flex-col items-center"
                 >
-                  <span className="text-[10px] uppercase tracking-[0.3em] font-black text-faheem-emerald/60 mb-1">
+                  <span className="text-[9px] uppercase tracking-[0.3em] font-black text-faheem-emerald/60 mb-0.5">
                     {LIVE_STRIP_COPY[liveState].title}
                   </span>
-                  <p className="text-sm text-obsidian-300 font-medium max-w-xs leading-relaxed">
+                  <p className="text-xs text-obsidian-400 font-medium max-w-xs leading-tight">
                     {LIVE_STRIP_COPY[liveState].body}
                   </p>
                 </motion.div>
@@ -399,9 +399,10 @@ export default function SessionPage() {
             </div>
           </div>
 
-          {/* Transcript Canvas */}
-          <div className="flex-1 min-h-0 px-4 sm:px-12 pb-8">
-            <div className="h-full rounded-[2rem] bg-obsidian-900/20 border border-white/[0.03] backdrop-blur-sm overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.3)] relative">
+          {/* Transcript Canvas - Expanded area with better margins */}
+          <div className="flex-1 min-h-0 px-4 sm:px-6 lg:px-12 pb-6 relative z-10">
+            <div className="h-full rounded-[2.5rem] bg-obsidian-900/60 border border-white/[0.05] backdrop-blur-md overflow-hidden shadow-[0_30px_100px_rgba(0,0,0,0.5)] relative group/canvas">
+               <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
                <TranscriptPanel
                 entries={transcript}
                 isThinking={isThinking && isActive}
@@ -410,8 +411,8 @@ export default function SessionPage() {
           </div>
         </section>
 
-        {/* Right: Tools & Context (Desktop Only) */}
-        <aside className="hidden xl:flex w-[380px] flex-none flex-col gap-8 p-10 border-l border-white/5 bg-obsidian-950/20 backdrop-blur-md">
+        {/* Right: Tools & Context (Desktop Only) - Reduced width to give center more space */}
+        <aside className="hidden xl:flex w-[320px] flex-none flex-col gap-8 p-8 border-l border-white/5 bg-obsidian-950/40 backdrop-blur-md">
           <div className="space-y-10">
             <section>
               <h3 className="text-[10px] uppercase tracking-[0.3em] font-black text-obsidian-500 mb-6 flex items-center gap-3">

@@ -52,6 +52,7 @@ function processInlineContent(text: string): string {
   });
 
   // Bold: **text**
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-black text-white">$1</strong>');
   html = html.replace(
     /\*\*(.+?)\*\*/g,
     '<strong class="font-semibold text-slate-50">$1</strong>'
@@ -71,12 +72,12 @@ function renderTextLines(text: string) {
     const stepMatch = trimmed.match(/^(\d+)[\.\)]\s+(.*)$/);
     if (stepMatch) {
       return (
-        <div key={idx} className="flex gap-3 group/step py-1">
-          <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/20 shrink-0 mt-0.5 group-hover/step:bg-emerald-500 group-hover/step:text-white transition-colors">
+        <div key={idx} className="flex gap-4 group/step py-2">
+          <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-faheem-emerald/20 text-faheem-emerald text-[12px] font-black border border-faheem-emerald/30 shrink-0 mt-0.5 group-hover/step:bg-faheem-emerald group-hover/step:text-white transition-all duration-300 shadow-lg shadow-faheem-emerald/10">
             {stepMatch[1]}
           </span>
           <span
-            className="flex-1 pt-0.5"
+            className="flex-1 pt-1 text-[16px] sm:text-[18px] lg:text-[20px] font-semibold tracking-tight leading-relaxed"
             dangerouslySetInnerHTML={{
               __html: processInlineContent(stepMatch[2]),
             }}
@@ -89,10 +90,10 @@ function renderTextLines(text: string) {
     const bulletMatch = trimmed.match(/^[\*\-]\s+(.*)$/);
     if (bulletMatch) {
       return (
-        <div key={idx} className="flex gap-3 ml-2 py-0.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/40 mt-2 shrink-0" />
+        <div key={idx} className="flex gap-4 ml-3 py-1.5">
+          <span className="w-2 h-2 rounded-full bg-faheem-emerald/60 mt-3 shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
           <span
-            className="flex-1"
+            className="flex-1 text-[16px] sm:text-[18px] lg:text-[20px] font-medium tracking-tight leading-relaxed"
             dangerouslySetInnerHTML={{
               __html: processInlineContent(bulletMatch[1]),
             }}
@@ -105,7 +106,7 @@ function renderTextLines(text: string) {
     return (
       <p
         key={idx}
-        className="leading-relaxed"
+        className="leading-[1.8] text-[16px] sm:text-[18px] lg:text-[20px] font-medium tracking-tight"
         dangerouslySetInnerHTML={{ __html: processInlineContent(line) }}
       />
     );
@@ -155,7 +156,7 @@ export default function TranscriptPanel({
   }
 
   return (
-    <div className="h-full overflow-y-auto overflow-x-hidden scroll-smooth custom-scrollbar px-4 py-8 space-y-12">
+    <div className="h-full overflow-y-auto overflow-x-hidden scroll-smooth custom-scrollbar px-6 sm:px-10 lg:px-16 py-10 space-y-14">
       <AnimatePresence initial={false}>
         {entries.map((e, i) => {
           const isRecap = e.role === "tutor" && e.text.trim().startsWith("✓");
@@ -169,37 +170,37 @@ export default function TranscriptPanel({
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
               className={`flex w-full ${e.role === "student" ? "justify-end" : "justify-start"}`}
             >
-              <div className={`flex gap-6 max-w-[95%] sm:max-w-[85%] ${e.role === "student" ? "flex-row-reverse" : "flex-row"}`}>
+              <div className={`flex gap-8 w-full ${e.role === "student" ? "max-w-[85%] flex-row-reverse" : "max-w-full flex-row"}`}>
                 
                 {/* Avatar / Side Indicator */}
                 <div className="flex-none flex flex-col items-center">
-                  <div className={`w-1 h-full rounded-full ${
-                    e.role === "tutor" ? "bg-faheem-emerald/30 shadow-[0_0_10px_rgba(16,185,129,0.2)]" : "bg-obsidian-700"
+                  <div className={`w-1 h-full rounded-full transition-colors duration-500 ${
+                    e.role === "tutor" ? "bg-faheem-emerald/40 shadow-[0_0_15px_rgba(16,185,129,0.3)]" : "bg-obsidian-700"
                   }`} />
                 </div>
 
                 {/* Content Area */}
-                <div className={`flex flex-col gap-3 ${e.role === "student" ? "items-end" : "items-start"}`}>
+                <div className={`flex flex-col gap-4 flex-1 ${e.role === "student" ? "items-end" : "items-start"}`}>
                   
                   {/* Role Label */}
-                  <div className="flex items-center gap-3 px-1">
-                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-obsidian-500">
+                  <div className="flex items-center gap-4 px-1">
+                    <span className="text-[11px] font-black uppercase tracking-[0.25em] text-obsidian-500">
                       {e.role === "tutor" ? "Faheem Math" : "Student"}
                     </span>
                     {isRecap && (
-                      <span className="text-[9px] font-bold uppercase tracking-widest text-faheem-emerald bg-faheem-emerald/10 px-2 py-0.5 rounded border border-faheem-emerald/20">
-                        Concept Recap
+                      <span className="text-[10px] font-black uppercase tracking-widest text-faheem-emerald bg-faheem-emerald/10 px-3 py-1 rounded border border-faheem-emerald/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+                        Deep Dive Recap
                       </span>
                     )}
-                    <span className="text-[10px] text-obsidian-600 font-mono opacity-60">{e.timestamp}</span>
+                    <span className="text-[11px] text-obsidian-600 font-mono opacity-50 tracking-tighter">{e.timestamp}</span>
                   </div>
 
                   {/* Message Surface */}
                   <div className={`
-                    relative text-obsidian-50 leading-relaxed
+                    relative text-obsidian-50 leading-[1.8] w-full
                     ${e.role === "tutor" 
-                      ? "text-[15px] sm:text-[16px]" 
-                      : "text-[14px] px-5 py-3 rounded-2xl bg-obsidian-900/50 border border-obsidian-800"
+                      ? "text-[16px] sm:text-[18px] lg:text-[20px] font-medium tracking-tight" 
+                      : "text-[15px] px-6 py-4 rounded-3xl bg-obsidian-900/80 border border-obsidian-800 shadow-xl"
                     }
                   `}>
                     {e.imageUrl && (

@@ -12,7 +12,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        background: "#020617", // Deep Obsidian
+        background: "#02040a", // Even deeper obsidian for better contrast
         foreground: "#F8FAFC", // Ghost White
         obsidian: {
           50: "#F8FAFC",
@@ -24,8 +24,8 @@ module.exports = {
           600: "#475569",
           700: "#334155",
           800: "#1E293B",
-          900: "#0F172A", // Glass Surface
-          950: "#020617", // Deep Obsidian
+          900: "#0b1221", // Darker glass surface
+          950: "#02040a", // Deeper obsidian
         },
         faheem: {
           emerald: "#10B981",
