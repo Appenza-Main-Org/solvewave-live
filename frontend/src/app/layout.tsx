@@ -1,6 +1,12 @@
 import type { Metadata } from "next";
+import { Cairo } from "next/font/google";
 import "katex/dist/katex.min.css";
 import "./globals.css";
+
+const cairo = Cairo({
+  subsets: ["latin", "arabic"],
+  variable: "--font-cairo",
+});
 
 export const metadata: Metadata = {
   title: "Faheem Math AI Tutor — Live Math Tutoring",
@@ -13,8 +19,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-slate-950 text-slate-100 antialiased">
+    <html lang="en" className={`${cairo.variable}`}>
+      <body className="min-h-screen antialiased">
         {children}
       </body>
     </html>
