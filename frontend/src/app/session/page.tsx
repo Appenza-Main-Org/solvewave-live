@@ -8,58 +8,32 @@ import TranscriptPanel from "@/components/TranscriptPanel";
 import ModeSelector, { type TutorMode } from "@/components/ModeSelector";
 import ExamplesPanel from "@/components/ExamplesPanel";
 import HelpPanel from "@/components/HelpPanel";
+import FaheemLogo from "@/components/FaheemLogo";
 import { log } from "@/lib/log";
 
 // ── Live state indicator ────────────────────────────────────────────────────
 const STATE_CONFIG: Record<LiveState, { dot: string; label: string; pulse: boolean }> = {
-  idle:       { dot: "bg-slate-500",   label: "Ready",       pulse: false },
-  connecting: { dot: "bg-yellow-400",  label: "Connecting…", pulse: true  },
-  connected:  { dot: "bg-emerald-400", label: "Live",        pulse: false },
-  thinking:   { dot: "bg-sky-400",     label: "Thinking…",   pulse: true  },
-  seeing:     { dot: "bg-violet-400",  label: "Seeing…",     pulse: true  },
-  listening:  { dot: "bg-rose-400",    label: "Listening…",  pulse: true  },
+  idle:         { dot: "bg-slate-500",   label: "Ready",       pulse: false },
+  connecting:   { dot: "bg-yellow-400",  label: "Connecting…", pulse: true  },
+  connected:    { dot: "bg-emerald-400", label: "Live",        pulse: false },
+  thinking:     { dot: "bg-sky-400",     label: "Thinking…",   pulse: true  },
+  seeing:       { dot: "bg-violet-400",  label: "Seeing…",     pulse: true  },
+  listening:    { dot: "bg-rose-400",    label: "Listening…",  pulse: true  },
   speaking:     { dot: "bg-emerald-500", label: "Speaking…",   pulse: true  },
-  interrupted:  { dot: "bg-orange-400", label: "Interrupted",  pulse: false },
-  error:        { dot: "bg-red-500",    label: "Error",        pulse: false },
+  interrupted:  { dot: "bg-orange-400",  label: "Interrupted", pulse: false },
+  error:        { dot: "bg-red-500",     label: "Error",       pulse: false },
 };
 
 const LIVE_STRIP_COPY: Record<LiveState, { title: string; body: string }> = {
-  idle: {
-    title: "Ready",
-    body: "Click Start session in the header, then speak or type a math problem.",
-  },
-  connecting: {
-    title: "Connecting to your tutor…",
-    body: "Setting up a live audio channel with Faheem.",
-  },
-  connected: {
-    title: "Live",
-    body: "Faheem is ready — speak, type, or snap a math problem.",
-  },
-  thinking: {
-    title: "Thinking through your steps…",
-    body: "Faheem is working out the next step in the solution.",
-  },
-  seeing: {
-    title: "Seeing your image…",
-    body: "Faheem is reading the problem from your photo.",
-  },
-  listening: {
-    title: "Listening",
-    body: "Speak naturally — you can cut in at any time.",
-  },
-  speaking: {
-    title: "Explaining the next step…",
-    body: "Listen for the explanation, or interrupt with a follow-up question.",
-  },
-  interrupted: {
-    title: "Interrupted",
-    body: "You cut in — Faheem stopped speaking and is listening to your new question.",
-  },
-  error: {
-    title: "Connection issue",
-    body: "End the session and start again. If this keeps happening, check your network.",
-  },
+  idle:        { title: "Ready",        body: "Start a session to begin" },
+  connecting:  { title: "Connecting…",  body: "Setting up live audio" },
+  connected:   { title: "Live",         body: "Speak, type, or snap a problem" },
+  thinking:    { title: "Thinking…",    body: "Working out the next step" },
+  seeing:      { title: "Seeing…",      body: "Reading your image" },
+  listening:   { title: "Listening",    body: "Speak naturally — interrupt anytime" },
+  speaking:    { title: "Speaking…",    body: "Listen, or interrupt with a question" },
+  interrupted: { title: "Interrupted",  body: "Listening to your follow-up" },
+  error:       { title: "Error",        body: "End and restart the session" },
 };
 
 // ── Page ────────────────────────────────────────────────────────────────────
@@ -309,81 +283,91 @@ export default function SessionPage() {
     <div className="flex flex-col h-dvh bg-slate-950 overflow-hidden">
 
       {/* ── Header ────────────────────────────────────────────────────────── */}
-      <header className="flex-none flex items-center gap-4 px-5 h-16 border-b border-slate-800/60 bg-slate-950/95 backdrop-blur z-10">
+      <header className="flex-none border-b border-slate-800/60 bg-slate-950/95 backdrop-blur z-10">
+        {/* Row 1: Brand + controls */}
+        <div className="flex items-center gap-2 sm:gap-4 px-3 sm:px-5 h-12 sm:h-16">
 
-        {/* Brand */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          <div className="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center text-sm font-bold text-white shadow-sm">
-            F
-          </div>
-          <div className="flex flex-col">
-            <span className="font-semibold text-sm tracking-tight text-slate-200">
-              Faheem <span className="text-emerald-400">Math</span> <span className="text-slate-400 font-normal">AI Tutor</span>
-            </span>
-            <span className="text-[11px] text-slate-500 leading-tight">
-              Live math tutor
+          {/* Brand */}
+          <div className="flex items-center gap-2 shrink-0">
+            <FaheemLogo size={28} />
+            <span className="hidden sm:inline font-semibold text-sm tracking-tight text-slate-200">
+              Faheem <span className="text-emerald-400">Math</span>
             </span>
           </div>
-        </div>
 
-        {/* Mode Tab Bar — centered */}
-        <div className="flex-1 flex justify-center">
-          <ModeSelector selected={mode} onChange={handleModeChange} />
-        </div>
+          {/* Mode Tab Bar — centered (desktop only) */}
+          <div className="hidden md:flex flex-1 justify-center">
+            <ModeSelector selected={mode} onChange={handleModeChange} />
+          </div>
 
-        {/* Session timer + Live state + session controls */}
-        <div className="flex items-center gap-3 shrink-0">
-          {isActive && (
-            <div className="px-3 py-1.5 rounded-full bg-slate-900/90 border border-slate-800 text-xs text-slate-300 font-mono">
-              {timerDisplay}
+          {/* Spacer on mobile/tablet */}
+          <div className="flex-1 md:hidden" />
+
+          {/* Session timer + Live state + session controls */}
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            {isActive && (
+              <div className="hidden sm:block px-3 py-1.5 rounded-full bg-slate-900/90 border border-slate-800 text-xs text-slate-300 font-mono">
+                {timerDisplay}
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-slate-900/90 border border-slate-800">
+              <span
+                className={`w-2 h-2 rounded-full shrink-0 ${state.dot} ${state.pulse ? "animate-pulse" : ""}`}
+              />
+              <span className="text-[10px] sm:text-xs text-slate-300 font-medium">{state.label}</span>
             </div>
-          )}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/90 border border-slate-800">
-            <span
-              className={`w-2 h-2 rounded-full shrink-0 ${state.dot} ${state.pulse ? "animate-pulse" : ""}`}
-            />
-            <span className="text-xs text-slate-300 font-medium">{state.label}</span>
+            <button
+              onClick={() => setHelpPanelOpen(true)}
+              className="hidden lg:flex flex-none w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 items-center justify-center text-slate-400 hover:text-slate-200 transition-colors text-sm"
+              title="Help & About"
+              type="button"
+            >
+              ?
+            </button>
+            <button
+              onClick={() => {
+                if (isActive) {
+                  stopSession();
+                } else {
+                  autoVoiceRef.current = true; // auto-start voice once connected
+                  startSession();
+                }
+              }}
+              disabled={status === "connecting"}
+              className={`
+                flex-none px-3 sm:px-3.5 h-8 sm:h-9 rounded-full text-[11px] sm:text-xs font-semibold whitespace-nowrap
+                transition-all duration-150 active:scale-95 border border-transparent
+                ${isActive
+                  ? "bg-red-600/90 hover:bg-red-500 text-white"
+                  : "bg-emerald-600 hover:bg-emerald-500 text-white"
+                }
+                disabled:opacity-50 disabled:cursor-not-allowed
+              `}
+            >
+              {/* Short labels on mobile/tablet, full on desktop */}
+              <span className="lg:hidden">
+                {status === "connecting" ? "…" : isActive ? "End" : "Start"}
+              </span>
+              <span className="hidden lg:inline">
+                {status === "connecting" ? "Connecting…" : isActive ? "End session" : "Start session"}
+              </span>
+            </button>
           </div>
-          <button
-            onClick={() => setHelpPanelOpen(true)}
-            className="flex-none w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-slate-200 transition-colors text-sm"
-            title="Help & About"
-            type="button"
-          >
-            ?
-          </button>
-          <button
-            onClick={() => {
-              if (isActive) {
-                stopSession();
-              } else {
-                autoVoiceRef.current = true; // auto-start voice once connected
-                startSession();
-              }
-            }}
-            disabled={status === "connecting"}
-            className={`
-              flex-none px-3.5 h-9 rounded-full text-xs font-semibold whitespace-nowrap
-              transition-all duration-150 active:scale-95 border border-transparent
-              ${isActive
-                ? "bg-red-600/90 hover:bg-red-500 text-white"
-                : "bg-emerald-600 hover:bg-emerald-500 text-white"
-              }
-              disabled:opacity-50 disabled:cursor-not-allowed
-            `}
-          >
-            {status === "connecting" ? "Connecting…" : isActive ? "End session" : "Start session"}
-          </button>
+        </div>
+
+        {/* Row 2: Mode selector (mobile/tablet only) */}
+        <div className="md:hidden flex justify-center px-3 pb-2">
+          <ModeSelector selected={mode} onChange={handleModeChange} />
         </div>
       </header>
 
       {/* ── Main layout: transcript + side panel ───────────────────────────── */}
-      <main className="flex-1 min-h-0 overflow-hidden px-4 py-3 lg:px-6 lg:py-4">
-        <div className="h-full flex flex-col lg:flex-row gap-4 lg:gap-5">
+      <main className="flex-1 min-h-0 overflow-hidden px-2 py-2 sm:px-4 sm:py-3 lg:px-6 lg:py-4">
+        <div className="h-full flex flex-col lg:flex-row gap-3 lg:gap-5">
 
           {/* Primary: transcript / live tutoring surface */}
           <section className="flex-1 min-h-0 min-w-0">
-            <div className="h-full rounded-2xl bg-slate-900/70 border border-slate-800/70 shadow-[0_0_0_1px_rgba(15,23,42,0.9)] overflow-hidden">
+            <div className="h-full rounded-xl sm:rounded-2xl bg-slate-900/70 border border-slate-800/70 shadow-[0_0_0_1px_rgba(15,23,42,0.9)] overflow-hidden">
               <TranscriptPanel
                 entries={transcript}
                 isThinking={isThinking && isActive}
@@ -408,7 +392,7 @@ export default function SessionPage() {
                     Problem image
                   </span>
                   <p className="text-xs text-slate-500">
-                    {imageFile ? "Attached — sent with your next message" : "Optional — snap or upload homework"}
+                    {imageFile ? "Attached — sent with your next message" : "Snap or upload homework"}
                   </p>
                 </div>
               </div>
@@ -426,26 +410,20 @@ export default function SessionPage() {
                       {imageFile.name}
                     </p>
                     <p className="text-[11px] text-slate-500">
-                      {(imageFile.size / 1024).toFixed(1)} KB · {imageFile.type}
+                      {(imageFile.size / 1024).toFixed(1)} KB
                     </p>
                     <button
                       onClick={handleImageClear}
-                      className="mt-1.5 text-[11px] text-slate-400 hover:text-slate-100 underline-offset-2 hover:underline"
+                      className="mt-1 text-[11px] text-slate-400 hover:text-slate-100 underline-offset-2 hover:underline"
                       type="button"
                     >
-                      Remove image
+                      Remove
                     </button>
                   </div>
                 </div>
               ) : (
                 <div className="mt-2 rounded-xl border border-dashed border-slate-700/80 bg-slate-950/40 px-3 py-2.5 text-xs text-slate-500">
-                  <p className="mb-1.5">
-                    Snap a photo of your worksheet or upload a screenshot. Use the{" "}
-                    <span className="text-slate-200 font-medium">camera button</span> below to attach it.
-                  </p>
-                  <p className="text-[11px] text-slate-600">
-                    Ideal for handwritten algebra, geometry diagrams, or word problems.
-                  </p>
+                  Use the 📷 button below to attach a photo of your worksheet.
                 </div>
               )}
             </div>
@@ -456,7 +434,7 @@ export default function SessionPage() {
       {/* ── Live voice / state strip (pinned above composer) ──────────────── */}
       <div
         className={`
-          flex-none flex items-center gap-3 mx-4 mb-1 px-3.5 py-2 rounded-2xl text-xs
+          flex-none flex items-center gap-2 sm:gap-3 mx-2 sm:mx-4 mb-1 px-3 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl text-xs
           border bg-slate-950/80
           ${
             liveState === "error"
@@ -474,24 +452,24 @@ export default function SessionPage() {
               ${state.pulse ? "animate-pulse" : ""}
             `}
           />
-          <span className="text-[11px] font-semibold uppercase tracking-[0.16em]">
+          <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.12em] sm:tracking-[0.16em]">
             {LIVE_STRIP_COPY[liveState].title}
           </span>
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="hidden sm:block flex-1 min-w-0">
           <p className="text-[11px] text-slate-400 truncate">
             {LIVE_STRIP_COPY[liveState].body}
           </p>
         </div>
         {voiceActive && liveState !== "error" && (
-          <div className="flex items-end gap-[3px] h-6">
+          <div className="flex items-end gap-[3px] h-5 sm:h-6 ml-auto">
             {[1, 2, 3, 4].map((b) => (
               <div
                 // eslint-disable-next-line react/no-array-index-key
                 key={b}
                 className="w-1 rounded-full bg-emerald-400/80 animate-[bounce_1.1s_ease-in-out_infinite]"
                 style={{
-                  height: `${6 + b * 4}px`,
+                  height: `${4 + b * 3}px`,
                   animationDelay: `${b * 90}ms`,
                 }}
               />
@@ -501,7 +479,7 @@ export default function SessionPage() {
       </div>
 
       {/* ── Composer bar (pinned to bottom) ────────────────────────────────── */}
-      <div className="flex-none flex items-end gap-2 px-4 py-3 border-t border-slate-800/60 bg-slate-950">
+      <div className="flex-none flex items-end gap-1.5 sm:gap-2 px-2 sm:px-4 py-2 sm:py-3 border-t border-slate-800/60 bg-slate-950">
 
         {/* Attach image */}
         <button
@@ -509,8 +487,8 @@ export default function SessionPage() {
           disabled={!isActive}
           title="Snap or upload a math problem"
           className={`
-            flex-none w-10 h-10 rounded-xl flex items-center justify-center
-            text-base transition-all duration-150
+            flex-none w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center
+            text-sm sm:text-base transition-all duration-150
             ${imageFile
               ? "bg-emerald-700 text-white ring-1 ring-emerald-500"
               : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200"
@@ -526,6 +504,7 @@ export default function SessionPage() {
           ref={fileInputRef}
           type="file"
           accept="image/*"
+          capture="environment"
           className="hidden"
           onChange={handleImagePick}
         />
@@ -536,8 +515,8 @@ export default function SessionPage() {
           disabled={!isActive}
           title={voiceActive ? "Stop voice" : "Speak your math problem"}
           className={`
-            flex-none w-10 h-10 rounded-xl flex items-center justify-center
-            text-base transition-all duration-150
+            flex-none w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center
+            text-sm sm:text-base transition-all duration-150
             ${voiceActive
               ? "bg-rose-600 text-white ring-2 ring-rose-500/40 animate-pulse"
               : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200"
@@ -558,17 +537,17 @@ export default function SessionPage() {
           rows={1}
           placeholder={
             voiceActive
-              ? "Listening… speak or type your math problem"
+              ? "Listening… speak or type"
               : imageFile
-              ? "Ask about the problem in the image… (optional)"
+              ? "Ask about the image… (optional)"
               : isActive
-              ? "Type a math problem… (Enter to send)"
-              : "Click Start session above, then speak or type a problem"
+              ? "Type a math problem…"
+              : "Tap Start to begin"
           }
           dir="auto"
           className="
             flex-1 resize-none rounded-xl bg-slate-800 border border-slate-700
-            px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500
+            px-3 sm:px-4 py-2 sm:py-2.5 text-[13px] sm:text-sm text-slate-100 placeholder-slate-500
             focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600
             disabled:opacity-40 transition-colors leading-relaxed max-h-28 overflow-y-auto
           "
@@ -580,8 +559,8 @@ export default function SessionPage() {
           disabled={!canSend}
           title={imageFile ? "Send math problem image" : "Send"}
           className="
-            flex-none w-10 h-10 rounded-xl bg-emerald-600 hover:bg-emerald-500
-            text-white flex items-center justify-center font-bold text-base
+            flex-none w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-600 hover:bg-emerald-500
+            text-white flex items-center justify-center font-bold text-sm sm:text-base
             transition-all duration-150
             disabled:opacity-30 disabled:cursor-not-allowed active:scale-95
           "

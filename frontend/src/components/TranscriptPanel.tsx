@@ -124,30 +124,30 @@ export default function TranscriptPanel({
   // ── Empty state ──────────────────────────────────────────────────────────────
   if (entries.length === 0 && !isThinking) {
     return (
-      <div className="flex flex-col h-full items-center justify-center gap-4 text-center px-6">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-800 to-emerald-600 flex items-center justify-center text-3xl shadow-lg">
+      <div className="flex flex-col h-full items-center justify-center gap-3 sm:gap-4 text-center px-4 sm:px-6">
+        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-emerald-800 to-emerald-600 flex items-center justify-center text-2xl sm:text-3xl shadow-lg">
           🎓
         </div>
         <div>
-          <p className="text-base font-semibold text-slate-300">
-            Your live math tutor is ready
+          <p className="text-sm sm:text-base font-semibold text-slate-300">
+            Your math tutor is ready
           </p>
-          <p className="text-sm text-slate-500 mt-1.5">
-            Click <span className="text-emerald-400 font-semibold">Start session</span> in the header — then speak, type, or snap a math problem.
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Tap <span className="text-emerald-400 font-semibold">Start</span> then speak or type a problem
           </p>
         </div>
-        <div className="flex flex-wrap justify-center gap-2 mt-2 text-xs text-slate-600 max-w-xl">
-          <span className="px-2.5 py-1 rounded-full bg-slate-800/80">
-            Try: Solve 3x + 5 = 14
+        <div className="flex flex-wrap justify-center gap-1.5 sm:gap-2 mt-1 sm:mt-2 text-[11px] sm:text-xs text-slate-600 max-w-xl">
+          <span className="px-2 sm:px-2.5 py-1 rounded-full bg-slate-800/80">
+            Solve 3x + 5 = 14
           </span>
-          <span className="px-2.5 py-1 rounded-full bg-slate-800/80">
-            Try: Explain what a derivative means
+          <span className="px-2 sm:px-2.5 py-1 rounded-full bg-slate-800/80">
+            Explain derivatives
           </span>
-          <span className="px-2.5 py-1 rounded-full bg-slate-800/80">
-            Try: Check my fraction steps
+          <span className="hidden sm:inline-block px-2.5 py-1 rounded-full bg-slate-800/80">
+            Check my fraction steps
           </span>
-          <span className="px-2.5 py-1 rounded-full bg-slate-800/80">
-            Try: Snap a photo of my homework
+          <span className="px-2 sm:px-2.5 py-1 rounded-full bg-slate-800/80">
+            📷 Snap homework
           </span>
         </div>
       </div>
@@ -156,7 +156,7 @@ export default function TranscriptPanel({
 
   // ── Conversation ─────────────────────────────────────────────────────────────
   return (
-    <div className="h-full overflow-y-auto px-4 pt-4 pb-3 space-y-4">
+    <div className="h-full overflow-y-auto px-3 sm:px-4 pt-3 sm:pt-4 pb-3 space-y-3 sm:space-y-4">
 
       {entries.map((e, i) => {
         const isRecap =
@@ -166,13 +166,13 @@ export default function TranscriptPanel({
         return (
           <div
             key={i}
-            className={`flex gap-3 ${e.role === "student" ? "flex-row-reverse" : "flex-row"}`}
+            className={`flex gap-2 sm:gap-3 ${e.role === "student" ? "flex-row-reverse" : "flex-row"}`}
           >
             {/* Avatar */}
             <div
               className={`
-                flex-none w-8 h-8 rounded-full flex items-center justify-center
-                text-xs font-bold shrink-0 mt-0.5
+                flex-none w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center
+                text-[10px] sm:text-xs font-bold shrink-0 mt-0.5
                 ${e.role === "tutor"
                   ? "bg-emerald-700 text-emerald-100"
                   : "bg-slate-600 text-slate-200"
@@ -184,16 +184,16 @@ export default function TranscriptPanel({
 
             {/* Label + bubble + timestamp */}
             <div
-              className={`flex flex-col gap-1 max-w-[76%] ${
+              className={`flex flex-col gap-0.5 sm:gap-1 max-w-[85%] sm:max-w-[76%] ${
                 e.role === "student" ? "items-end" : "items-start"
               }`}
             >
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] font-medium tracking-wide text-slate-500 uppercase">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <span className="text-[10px] sm:text-[11px] font-medium tracking-wide text-slate-500 uppercase">
                   {e.role === "tutor" ? "Faheem" : "You"}
                 </span>
                 {isRecap && (
-                  <span className="text-[10px] uppercase tracking-[0.14em] text-emerald-300 bg-emerald-900/40 border border-emerald-500/40 rounded-full px-2 py-0.5">
+                  <span className="text-[9px] sm:text-[10px] uppercase tracking-[0.14em] text-emerald-300 bg-emerald-900/40 border border-emerald-500/40 rounded-full px-1.5 sm:px-2 py-0.5">
                     Recap
                   </span>
                 )}
@@ -205,7 +205,7 @@ export default function TranscriptPanel({
               </div>
               <div
                 className={`
-                  px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm
+                  px-3 sm:px-4 py-2 sm:py-3 rounded-2xl text-[13px] sm:text-sm leading-relaxed shadow-sm
                   ${
                     isPartial
                       ? "bg-emerald-700/10 text-emerald-100/70 italic rounded-tr-lg border border-emerald-700/30"
@@ -222,14 +222,14 @@ export default function TranscriptPanel({
                   <img
                     src={e.imageUrl}
                     alt="Shared image"
-                    className="rounded-xl max-h-48 mb-2.5 w-full object-contain bg-slate-900"
+                    className="rounded-xl max-h-36 sm:max-h-48 mb-2 sm:mb-2.5 w-full object-contain bg-slate-900"
                   />
                 )}
-                <div className="space-y-1.5 whitespace-pre-wrap break-words">
+                <div className="space-y-1 sm:space-y-1.5 whitespace-pre-wrap break-words">
                   {renderTextLines(e.text)}
                 </div>
               </div>
-              <span className="text-xs text-slate-600 px-1">{e.timestamp}</span>
+              <span className="text-[10px] sm:text-xs text-slate-600 px-1">{e.timestamp}</span>
             </div>
           </div>
         );
@@ -237,11 +237,11 @@ export default function TranscriptPanel({
 
       {/* ── Thinking indicator ─────────────────────────────────────────────── */}
       {isThinking && (
-        <div className="flex gap-3">
-          <div className="flex-none w-8 h-8 rounded-full bg-emerald-700 text-emerald-100 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+        <div className="flex gap-2 sm:gap-3">
+          <div className="flex-none w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-emerald-700 text-emerald-100 flex items-center justify-center text-[10px] sm:text-xs font-bold shrink-0 mt-0.5">
             F
           </div>
-          <div className="px-4 py-3 rounded-2xl rounded-tl-sm bg-slate-800/90 border border-slate-700/40">
+          <div className="px-3 sm:px-4 py-2 sm:py-3 rounded-2xl rounded-tl-sm bg-slate-800/90 border border-slate-700/40">
             <div className="flex gap-1.5 items-center h-4">
               {[0, 1, 2].map((i) => (
                 <span
