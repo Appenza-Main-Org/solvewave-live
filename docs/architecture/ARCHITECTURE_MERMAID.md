@@ -1,35 +1,36 @@
-# Faheem Live — Architecture (Mermaid)
+# Faheem Math — Architecture (Mermaid) v0.5.1
 
 ## System Overview
 
 ```mermaid
 graph TB
-    subgraph Student["👤 Student"]
-        MIC[🎙 Microphone]
-        SPK[🔊 Speaker]
-        KB[⌨️ Keyboard]
-        CAM[📷 Camera/Upload]
+    subgraph Student["Student"]
+        MIC["Microphone"]
+        SPK["Speaker"]
+        KB["Keyboard"]
+        CAM["Camera"]
     end
 
-    subgraph Browser["Browser — Next.js 14 (Cloud Run)"]
+    subgraph Browser["Browser — Next.js 14 + Framer Motion (Cloud Run)"]
         subgraph UI["React Components"]
-            TP[TranscriptPanel]
-            MS[ModeSelector<br/>explain / quiz / homework]
-            EP[ExamplesPanel]
-            IC[ImageUpload]
-            COMP[Composer<br/>voice · text · image]
-            LSI[Live State Indicator<br/>9 states]
-            TIMER[Session Timer]
+            LOGO[FaheemLogo]
+            MS[ModeSelector<br/>Explain / Quiz / Homework]
+            ORB[AmbientOrb<br/>Animated SVG state viz]
+            TP[TranscriptPanel<br/>F/U avatars]
+            EP[ExamplesPanel<br/>Study Curriculum]
+            COMP[Floating Composer<br/>Camera · Mic · Text · Send]
+            TIMER[Session Timer<br/>mm:ss]
+            HELP[HelpPanel<br/>Modal overlay]
         end
 
         subgraph Hooks["Core Hooks"]
-            USS[useSessionSocket<br/>WebSocket + Audio mgmt]
+            USS[useSessionSocket<br/>WebSocket + Audio + State]
             UVT[useVoiceTranscription<br/>Web Speech API]
             UST[useSessionTimer]
         end
 
         subgraph WebAudio["Web Audio API"]
-            MCAP[Mic Capture<br/>16kHz PCM mono]
+            MCAP[Mic Capture<br/>native rate → 16kHz<br/>linear interpolation]
             PLAY[Audio Playback<br/>24kHz PCM mono]
         end
     end
@@ -67,30 +68,30 @@ graph TB
     end
 
     subgraph Gemini["Gemini API (Google Cloud)"]
-        LIVE["gemini-2.5-flash-native-audio<br/>Real-time audio streaming<br/>Full-duplex · Barge-in · Tools"]
+        LIVE["gemini-2.5-flash-native-audio<br/>Real-time audio streaming<br/>Full-duplex · Barge-in · Tools<br/>Voice: Charon"]
         TEXT["gemini-2.5-flash<br/>Text + Vision<br/>Multi-turn · Multimodal"]
     end
 
-    %% Student ↔ Browser
+    %% Student <-> Browser
     MIC -->|audio| MCAP
     PLAY -->|audio| SPK
     KB -->|text| COMP
-    CAM -->|image| IC
+    CAM -->|"auto-capture"| COMP
 
-    %% UI ↔ Hooks
+    %% UI <-> Hooks
     COMP --> USS
-    IC --> USS
     MS --> USS
     USS --> TP
-    USS --> LSI
-    UVT -.->|partial/final transcripts| TP
+    USS --> ORB
+    UVT -.->|"partial/final transcripts"| TP
+    UVT -.->|"final → sendTextQuiet"| USS
     UST --> TIMER
 
-    %% Hooks ↔ Web Audio
+    %% Hooks <-> Web Audio
     USS --> MCAP
     USS --> PLAY
 
-    %% Browser ↔ Backend (WebSocket)
+    %% Browser <-> Backend (WebSocket)
     MCAP -->|"binary: PCM 16kHz"| WSEP
     USS -->|"JSON: text/image/END"| WSEP
     WSEP -->|"binary: PCM 24kHz"| PLAY
@@ -104,7 +105,7 @@ graph TB
     MR -->|"JSON image"| GIR
     AQ --> UP
 
-    %% Backend ↔ Gemini
+    %% Backend <-> Gemini
     UP -->|"realtime audio stream"| LIVE
     LIVE -->|"audio + tool_calls"| DN
     DN -->|"binary audio"| WSEP
@@ -146,18 +147,24 @@ sequenceDiagram
 
     Note over B,BE: WebSocket: /ws/session
 
-    S->>B: Click "Start Session"
+    S->>B: Click "Start Tutoring"
     B->>BE: Open WebSocket
     BE-->>B: {"type":"status","value":"connected","session_id":"uuid"}
+    Note over B: Auto-start voice + transcription
 
     rect rgb(30, 58, 95)
-        Note over S,G: Voice Path (Real-time Audio)
+        Note over S,G: Voice Path (Real-time Audio + Dual Response)
         S->>B: Speaks into mic
-        B->>BE: Binary: PCM 16kHz chunks (100ms)
-        BE->>G: Gemini Live stream
+        B->>B: Web Speech API transcribes locally
+        B->>BE: Binary: PCM 16kHz chunks (resampled)
+        B->>BE: JSON: sendTextQuiet(transcript, mode)
+        BE->>G: Gemini Live stream (audio)
+        BE->>G: generate_text_reply(transcript)
         G-->>BE: Audio response PCM 24kHz
+        G-->>BE: Text response
         BE-->>B: Binary: PCM 24kHz chunks
-        B-->>S: Plays audio
+        BE-->>B: {"type":"message","role":"tutor","text":"..."}
+        B-->>S: Plays audio + shows text
     end
 
     rect rgb(30, 75, 58)
@@ -170,9 +177,10 @@ sequenceDiagram
     end
 
     rect rgb(75, 58, 30)
-        Note over S,G: Image Path (Vision)
-        S->>B: Uploads math problem photo
-        B->>BE: {"type":"image","mimeType":"...","data":"base64","caption":"..."}
+        Note over S,G: Camera Path (Auto-Send Vision)
+        S->>B: Taps Camera → captures photo
+        B->>B: Auto-send (no staging step)
+        B->>BE: {"type":"image","mimeType":"...","data":"base64"}
         BE->>G: generate_image_reply()
         G-->>BE: Vision analysis response
         BE-->>B: {"type":"message","role":"tutor","text":"..."}
@@ -215,7 +223,7 @@ graph LR
         end
     end
 
-    USER["👤 Student Browser"] -->|"HTTPS"| FE
+    USER["Student Browser"] -->|"HTTPS"| FE
     FE -.->|"Serves Next.js app"| USER
     USER -->|"WSS /ws/session"| BE
     BE -->|"google-genai SDK<br/>GEMINI_API_KEY"| GAPI["Gemini API"]
@@ -224,7 +232,7 @@ graph LR
         E1["GEMINI_API_KEY"]
         E2["GEMINI_MODEL"]
         E3["CORS_ORIGINS"]
-        E4["NEXT_PUBLIC_WS_URL"]
+        E4[".env.production<br/>NEXT_PUBLIC_WS_URL<br/>(baked at build time)"]
     end
 
     ENV -.-> BE
@@ -241,13 +249,18 @@ stateDiagram-v2
 
     idle --> connecting: startSession()
     connecting --> connected: WS opened
+    Note right of connected: Auto-start voice + transcription
 
     connected --> listening: mic active
     connected --> thinking: text/image sent
+    connected --> seeing: image sent
 
     listening --> thinking: Gemini processing
     thinking --> speaking: audio response
     thinking --> connected: text response
+
+    seeing --> thinking: Gemini analyzing
+    seeing --> connected: vision reply
 
     speaking --> interrupted: barge-in detected
     speaking --> listening: turn complete
@@ -278,7 +291,7 @@ flowchart TD
     DISP --> BSR{build_session_recap}
 
     DPT -->|"type: algebra<br/>confidence: 0.85"| RES[Tool Results]
-    CA -->|"verdict: correct ✅<br/>or partial ⚠️<br/>or incorrect ❌"| RES
+    CA -->|"verdict: correct<br/>or partial<br/>or incorrect"| RES
     GNH -->|"hint_level: 1→2→3<br/>subtle → direct"| RES
     BSR -->|"topics, score,<br/>mistakes, summary"| RES
 
@@ -292,32 +305,43 @@ flowchart TD
 
 ```mermaid
 graph TD
-    ROOT["RootLayout<br/>layout.tsx"] --> SESSION["SessionPage<br/>/session"]
+    ROOT["RootLayout<br/>layout.tsx<br/>Cairo font"] --> SESSION["SessionPage<br/>/session"]
 
-    SESSION --> HEADER["Header Row"]
+    SESSION --> BG["Background Effects"]
+    SESSION --> HEADER["Header Bar"]
     SESSION --> MAIN["Main Content"]
-    SESSION --> COMPOSER["Composer Bar"]
+    SESSION --> FOOT["Floating Composer"]
+    SESSION --> MODAL["HelpPanel Modal"]
 
-    HEADER --> BRAND[Brand Logo]
-    HEADER --> MS2[ModeSelector]
-    HEADER --> TIM[Timer Display]
-    HEADER --> STATUS[Status Badge]
-    HEADER --> HELP[HelpPanel Toggle]
-    HEADER --> BTN[Start/Stop Button]
+    BG --> GRID[Logic Grid<br/>state-colored dots]
+    BG --> GLOW[Background Glow<br/>Framer Motion blur]
 
-    MAIN --> LEFT["Left Panel"]
-    MAIN --> RIGHT["Right Panel"]
+    HEADER --> LOGO2[FaheemLogo<br/>SVG icon]
+    HEADER --> BRAND2[Brand Title<br/>+ Status Dot]
+    HEADER --> MS2[ModeSelector<br/>desktop]
+    HEADER --> TIM[Timer Display<br/>mm:ss]
+    HEADER --> HELPBTN[Help Button]
+    HEADER --> BTN[Start/End Button]
 
-    LEFT --> TRANS[TranscriptPanel]
-    LEFT --> LIVE[Live State Strip<br/>+ Waveform]
+    MAIN --> MOBMODE[ModeSelector<br/>mobile only]
+    MAIN --> CENTER[Center Section]
+    MAIN --> ASIDE["Aside<br/>(xl only)"]
 
-    RIGHT --> EXAMPLES[ExamplesPanel]
-    RIGHT --> IMGUP[ImageUpload]
+    CENTER --> AMBIENT[Ambient State Viz]
+    CENTER --> CANVAS[Transcript Canvas]
 
-    COMPOSER --> CAMBTN[Camera Button]
-    COMPOSER --> VOICEBTN[Voice Toggle]
-    COMPOSER --> TEXTAREA[Text Input]
-    COMPOSER --> SENDBTN[Send Button]
+    AMBIENT --> ORB2[AmbientOrb<br/>animated SVG]
+    AMBIENT --> LABEL[State Label + Desc]
+
+    CANVAS --> TRANS[TranscriptPanel<br/>F/U avatars · scrollable]
+
+    ASIDE --> EXAMPLES[ExamplesPanel<br/>Study Curriculum]
+    ASIDE --> TIP[Quick Tip Card]
+
+    FOOT --> CAMBTN[Camera Button<br/>auto-send]
+    FOOT --> VOICEBTN[Mic Toggle<br/>voice + transcription]
+    FOOT --> TEXTAREA[Text Input]
+    FOOT --> SENDBTN[Send Button]
 
     %% Hooks
     SESSION -.->|uses| H1[useSessionSocket]
@@ -327,4 +351,41 @@ graph TD
 
 ---
 
-*Last updated: 2026-03-02*
+## Audio Pipeline (v0.5.0)
+
+```mermaid
+flowchart LR
+    subgraph Capture["Mic Capture (Browser)"]
+        A1["AudioContext<br/>(native rate: 44.1/48kHz)"]
+        A2["ScriptProcessorNode<br/>(bufferSize: 4096)"]
+        A3["Linear Interpolation<br/>native → 16kHz"]
+        A4["Int16Array<br/>PCM 16-bit"]
+    end
+
+    subgraph Transport["WebSocket"]
+        WS["Binary frames<br/>(ArrayBuffer)"]
+    end
+
+    subgraph Backend["Backend"]
+        AQ2["asyncio.Queue"]
+        UP2["upstream task"]
+    end
+
+    subgraph GeminiLive["Gemini Live"]
+        GL["Audio processing<br/>+ response"]
+    end
+
+    subgraph Playback["Audio Playback (Browser)"]
+        P1["Receive PCM 24kHz"]
+        P2["AudioContext<br/>(playback rate: 24kHz)"]
+        P3["AudioBufferSourceNode"]
+    end
+
+    A1 --> A2 --> A3 --> A4 --> WS --> AQ2 --> UP2 --> GL
+    GL --> |"PCM 24kHz"| WS
+    WS --> P1 --> P2 --> P3
+```
+
+---
+
+*Last updated: 2026-03-04 (v0.5.1)*
