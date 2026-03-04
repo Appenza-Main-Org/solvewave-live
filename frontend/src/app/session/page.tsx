@@ -77,6 +77,7 @@ export default function SessionPage() {
     status,
     isActive,
     isThinking,
+    isSpeaking,
     liveState,
     voiceActive,
     transcript,
@@ -109,11 +110,18 @@ export default function SessionPage() {
   imageFileRef.current = imageFile;
   const imagePreviewRef = useRef(imagePreview);
   imagePreviewRef.current = imagePreview;
+  const voiceActiveRef = useRef(voiceActive);
+  voiceActiveRef.current = voiceActive;
+  const isSpeakingRef = useRef(isSpeaking);
+  isSpeakingRef.current = isSpeaking;
 
   // ── Voice transcription callbacks ─────────────────────────────────────────
 
   const onPartialTranscript = useCallback((text: string) => {
     if (!text.trim()) return;
+
+    // Ignore echo: Web Speech API picks up Faheem's speaker output
+    if (isSpeakingRef.current) return;
 
     setTranscript((prev) => {
       const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -144,6 +152,9 @@ export default function SessionPage() {
 
   const onFinalTranscript = useCallback((text: string) => {
     if (!text.trim()) return;
+
+    // Ignore echo: Web Speech API picks up Faheem's speaker output
+    if (isSpeakingRef.current) return;
 
     const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const attachedImage = imageFileRef.current;
@@ -179,17 +190,22 @@ export default function SessionPage() {
       return [...prev, entry];
     });
 
-    // Send final transcript to backend so Gemini responds to it
+    // Send to backend — but only when Gemini Live is NOT handling audio.
+    // When voice is active, the raw audio stream goes directly to Gemini Live
+    // which processes speech natively. Sending text would create a duplicate
+    // response via the standard text API.
+    // Exception: images must go through the text API (Live doesn't handle images).
     if (isActiveRef.current) {
       if (attachedImage) {
-        // Send image with voice text as caption
+        // Image + voice caption: must use text API (Gemini Live doesn't handle images)
         sendImageQuietRef.current(attachedImage, text, modeRef.current);
-        // Clear attached image (don't revoke — it's now in transcript)
         setImageFile(null);
         setImagePreview(null);
-      } else {
+      } else if (!voiceActiveRef.current) {
+        // Text-only (no voice active): send via text API
         sendTextQuietRef.current(text, modeRef.current);
       }
+      // When voiceActive && no image: Gemini Live handles it via audio — don't send text
     }
   }, [setTranscript]);
 

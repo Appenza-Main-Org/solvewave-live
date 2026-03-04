@@ -141,6 +141,9 @@ export function useSessionSocket() {
 
   // ── Connect ────────────────────────────────────────────────────────────────
 
+  const retryCountRef = useRef(0);
+  const MAX_RETRIES = 2;
+
   const startSession = useCallback(() => {
     if (wsRef.current) {
       log.session("startSession called but WS already open — ignoring");
@@ -151,88 +154,102 @@ export function useSessionSocket() {
     setStatus("connecting");
     log.state("idle → connecting");
 
-    const ws = new WebSocket(WS_URL);
-    ws.binaryType = "arraybuffer"; // required for audio playback
-    wsRef.current = ws;
+    const connectWs = () => {
+      const ws = new WebSocket(WS_URL);
+      ws.binaryType = "arraybuffer";
+      wsRef.current = ws;
 
-    ws.onopen = () => {
-      log.ws("onopen — waiting for server status frame");
-    };
+      ws.onopen = () => {
+        retryCountRef.current = 0;
+        log.ws("onopen — waiting for server status frame");
+      };
 
-    ws.onmessage = (event) => {
-      // Binary frame = PCM audio from Gemini Live
-      if (typeof event.data !== "string") {
-        scheduleAudioChunk(event.data as ArrayBuffer);
-        return;
-      }
-
-      let msg: Record<string, unknown>;
-      try {
-        msg = JSON.parse(event.data);
-      } catch {
-        log.ws("Received non-JSON text — raw tutor message", event.data);
-        append({ role: "tutor", text: event.data, timestamp: timestamp() });
-        return;
-      }
-
-      log.ws(`Received type=${msg.type}`, msg);
-
-      if (msg.type === "status" && msg.value === "connected") {
-        log.session("Connected", { session_id: msg.session_id });
-        setStatus("connected");
-        log.state("connecting → connected");
-        append({
-          role: "tutor",
-          text: "Hi! I'm Faheem, your math tutor — what problem are we solving today?",
-          timestamp: timestamp(),
-        });
-      } else if (msg.type === "message" && typeof msg.text === "string") {
-        log.ws("Tutor message received", { text: msg.text.slice(0, 80) });
-        setIsThinking(false);
-        append({ role: "tutor", text: msg.text, timestamp: timestamp() });
-      } else if (msg.type === "recap" && msg.data) {
-        log.session("Recap received", msg.data);
-        setIsThinking(false);
-        const data    = msg.data as Record<string, unknown>;
-        const summary = typeof data.summary === "string" ? data.summary : "Session complete.";
-        append({ role: "tutor", text: `✓ ${summary}`, timestamp: timestamp() });
-      } else if (msg.type === "status" && msg.value === "interrupted") {
-        log.voice("Barge-in: tutor interrupted by student");
-        // Clear speaking immediately; show "Interrupted" briefly then revert
-        setIsSpeaking(false);
-        if (speakingTimerRef.current) {
-          clearTimeout(speakingTimerRef.current);
-          speakingTimerRef.current = null;
+      ws.onmessage = (event) => {
+        // Binary frame = PCM audio from Gemini Live
+        if (typeof event.data !== "string") {
+          scheduleAudioChunk(event.data as ArrayBuffer);
+          return;
         }
-        setIsInterrupted(true);
-        if (interruptedTimerRef.current) clearTimeout(interruptedTimerRef.current);
-        interruptedTimerRef.current = setTimeout(() => setIsInterrupted(false), 900);
-      } else if (msg.type === "error" && typeof msg.value === "string") {
-        log.error("Server error", msg.value);
+
+        let msg: Record<string, unknown>;
+        try {
+          msg = JSON.parse(event.data);
+        } catch {
+          log.ws("Received non-JSON text — raw tutor message", event.data);
+          append({ role: "tutor", text: event.data, timestamp: timestamp() });
+          return;
+        }
+
+        log.ws(`Received type=${msg.type}`, msg);
+
+        if (msg.type === "status" && msg.value === "connected") {
+          log.session("Connected", { session_id: msg.session_id });
+          setStatus("connected");
+          log.state("connecting → connected");
+          append({
+            role: "tutor",
+            text: "Hi! I'm Faheem, your math tutor — what problem are we solving today?",
+            timestamp: timestamp(),
+          });
+        } else if (msg.type === "message" && typeof msg.text === "string") {
+          log.ws("Tutor message received", { text: msg.text.slice(0, 80) });
+          setIsThinking(false);
+          append({ role: "tutor", text: msg.text, timestamp: timestamp() });
+        } else if (msg.type === "recap" && msg.data) {
+          log.session("Recap received", msg.data);
+          setIsThinking(false);
+          const data    = msg.data as Record<string, unknown>;
+          const summary = typeof data.summary === "string" ? data.summary : "Session complete.";
+          append({ role: "tutor", text: `✓ ${summary}`, timestamp: timestamp() });
+        } else if (msg.type === "status" && msg.value === "interrupted") {
+          log.voice("Barge-in: tutor interrupted by student");
+          setIsSpeaking(false);
+          if (speakingTimerRef.current) {
+            clearTimeout(speakingTimerRef.current);
+            speakingTimerRef.current = null;
+          }
+          setIsInterrupted(true);
+          if (interruptedTimerRef.current) clearTimeout(interruptedTimerRef.current);
+          interruptedTimerRef.current = setTimeout(() => setIsInterrupted(false), 900);
+        } else if (msg.type === "error" && typeof msg.value === "string") {
+          log.error("Server error", msg.value);
+          setIsThinking(false);
+          setStatus("error");
+          log.state("→ error");
+          append({ role: "tutor", text: `⚠ ${msg.value}`, timestamp: timestamp() });
+        }
+      };
+
+      ws.onclose = (event) => {
+        log.ws("onclose", { code: event.code, reason: event.reason });
+        stopVoiceCleanup();
+        setStatus("idle");
         setIsThinking(false);
-        setStatus("error");
-        log.state("→ error");
-        append({ role: "tutor", text: `⚠ ${msg.value}`, timestamp: timestamp() });
-      }
+        wsRef.current = null;
+        log.state("→ idle (ws closed)");
+      };
+
+      ws.onerror = (event) => {
+        log.error("WebSocket error", event);
+        wsRef.current = null;
+
+        // Retry on initial connection failure (common on mobile cold starts)
+        if (retryCountRef.current < MAX_RETRIES) {
+          retryCountRef.current += 1;
+          const delay = retryCountRef.current * 1500; // 1.5s, 3s
+          log.ws(`Retrying connection (${retryCountRef.current}/${MAX_RETRIES}) in ${delay}ms`);
+          setTimeout(connectWs, delay);
+        } else {
+          stopVoiceCleanup();
+          setStatus("error");
+          setIsThinking(false);
+          retryCountRef.current = 0;
+          log.state("→ error (ws error after retries)");
+        }
+      };
     };
 
-    ws.onclose = (event) => {
-      log.ws("onclose", { code: event.code, reason: event.reason });
-      stopVoiceCleanup();
-      setStatus("idle");
-      setIsThinking(false);
-      wsRef.current = null;
-      log.state("→ idle (ws closed)");
-    };
-
-    ws.onerror = (event) => {
-      log.error("WebSocket error", event);
-      stopVoiceCleanup();
-      setStatus("error");
-      setIsThinking(false);
-      wsRef.current = null;
-      log.state("→ error (ws error)");
-    };
+    connectWs();
   }, [append, scheduleAudioChunk, stopVoiceCleanup]);
 
   // ── Disconnect ─────────────────────────────────────────────────────────────
@@ -460,6 +477,7 @@ export function useSessionSocket() {
     status,
     isActive: status === "connected",
     isThinking,
+    isSpeaking,
     liveState,
     voiceActive,
     transcript,
