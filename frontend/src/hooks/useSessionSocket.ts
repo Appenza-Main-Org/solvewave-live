@@ -9,6 +9,9 @@ import { log } from "@/lib/log";
 const WS_URL =
   process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000/ws/session";
 
+// Derive the HTTP health URL from the WS URL for cold-start warm-up
+const HEALTH_URL = WS_URL.replace(/^ws(s)?:\/\//, "http$1://").replace(/\/ws\/session$/, "/health");
+
 // ── Voice audio constants ─────────────────────────────────────────────────────
 const MIC_SAMPLE_RATE  = 16000;  // Gemini input: 16 kHz
 const OUT_SAMPLE_RATE  = 24000;  // Gemini output: 24 kHz
@@ -142,7 +145,7 @@ export function useSessionSocket() {
   // ── Connect ────────────────────────────────────────────────────────────────
 
   const retryCountRef = useRef(0);
-  const MAX_RETRIES = 2;
+  const MAX_RETRIES = 3;
 
   const startSession = useCallback(() => {
     if (wsRef.current) {
@@ -153,6 +156,11 @@ export function useSessionSocket() {
     log.session("Starting session", { url: WS_URL });
     setStatus("connecting");
     log.state("idle → connecting");
+
+    // Fire-and-forget warm-up: hit the HTTP health endpoint to wake Cloud Run
+    // before opening the WebSocket. This prevents cold-start timeouts on mobile.
+    fetch(HEALTH_URL, { mode: "cors" }).catch(() => {});
+    log.ws("Warm-up ping sent to", HEALTH_URL);
 
     const connectWs = () => {
       const ws = new WebSocket(WS_URL);
@@ -222,22 +230,30 @@ export function useSessionSocket() {
 
       ws.onclose = (event) => {
         log.ws("onclose", { code: event.code, reason: event.reason });
-        stopVoiceCleanup();
-        setStatus("idle");
-        setIsThinking(false);
-        wsRef.current = null;
-        log.state("→ idle (ws closed)");
+        // Only reset state if this is still the active socket.
+        // During retries, onerror nulls wsRef before onclose fires;
+        // without this guard the stale onclose would kill the retry.
+        if (wsRef.current === ws) {
+          stopVoiceCleanup();
+          setStatus("idle");
+          setIsThinking(false);
+          wsRef.current = null;
+          log.state("→ idle (ws closed)");
+        }
       };
 
       ws.onerror = (event) => {
         log.error("WebSocket error", event);
+        // Null the ref so the subsequent onclose (which always fires after
+        // onerror) skips the state reset and doesn't interfere with retry.
         wsRef.current = null;
 
-        // Retry on initial connection failure (common on mobile cold starts)
+        // Retry on connection failure (common on mobile / Cloud Run cold starts)
         if (retryCountRef.current < MAX_RETRIES) {
           retryCountRef.current += 1;
-          const delay = retryCountRef.current * 1500; // 1.5s, 3s
+          const delay = retryCountRef.current * 2000; // 2s, 4s, 6s
           log.ws(`Retrying connection (${retryCountRef.current}/${MAX_RETRIES}) in ${delay}ms`);
+          setStatus("connecting"); // keep showing "connecting" during retries
           setTimeout(connectWs, delay);
         } else {
           stopVoiceCleanup();
