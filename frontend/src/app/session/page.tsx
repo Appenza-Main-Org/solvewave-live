@@ -39,8 +39,6 @@ const LIVE_STRIP_COPY: Record<LiveState, { title: string; body: string }> = {
 // ── Page ────────────────────────────────────────────────────────────────────
 export default function SessionPage() {
   const [mode, setMode]               = useState<TutorMode>("explain");
-  const [imageFile, setImageFile]     = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [text, setText]               = useState("");
   const [helpPanelOpen, setHelpPanelOpen] = useState(false);
   const fileInputRef      = useRef<HTMLInputElement>(null);
@@ -62,7 +60,6 @@ export default function SessionPage() {
     sendText,
     sendTextQuiet,
     sendImage,
-    sendImageQuiet,
     startVoice,
     stopVoice,
   } = useSessionSocket();
@@ -70,21 +67,15 @@ export default function SessionPage() {
   const { formatted: timerDisplay } = useSessionTimer(isActive);
 
   const state   = STATE_CONFIG[liveState];
-  const canSend = isActive && (imageFile !== null || text.trim().length > 0);
+  const canSend = isActive && text.trim().length > 0;
 
   // Refs to avoid stale closures in voice transcription callbacks
   const sendTextQuietRef = useRef(sendTextQuiet);
   sendTextQuietRef.current = sendTextQuiet;
-  const sendImageQuietRef = useRef(sendImageQuiet);
-  sendImageQuietRef.current = sendImageQuiet;
   const modeRef = useRef(mode);
   modeRef.current = mode;
   const isActiveRef = useRef(isActive);
   isActiveRef.current = isActive;
-  const imageFileRef = useRef(imageFile);
-  imageFileRef.current = imageFile;
-  const imagePreviewRef = useRef(imagePreview);
-  imagePreviewRef.current = imagePreview;
   const voiceActiveRef = useRef(voiceActive);
   voiceActiveRef.current = voiceActive;
   const isSpeakingRef = useRef(isSpeaking);
@@ -132,8 +123,6 @@ export default function SessionPage() {
     if (isSpeakingRef.current) return;
 
     const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    const attachedImage = imageFileRef.current;
-    const attachedPreview = imagePreviewRef.current;
 
     setTranscript((prev) => {
       const entry = {
@@ -141,7 +130,6 @@ export default function SessionPage() {
         text,
         timestamp: now,
         partial: false,
-        ...(attachedImage && attachedPreview ? { imageUrl: attachedPreview } : {}),
       };
 
       // If we have a tracked partial transcript index, finalize it
@@ -165,22 +153,11 @@ export default function SessionPage() {
       return [...prev, entry];
     });
 
-    // Send to backend — but only when Gemini Live is NOT handling audio.
-    // When voice is active, the raw audio stream goes directly to Gemini Live
-    // which processes speech natively. Sending text would create a duplicate
-    // response via the standard text API.
-    // Exception: images must go through the text API (Live doesn't handle images).
+    // Always send transcribed text to the backend text API.
+    // Gemini Live also receives audio directly, so the user may get
+    // both a voice reply (from Live) and a text reply (from text API).
     if (isActiveRef.current) {
-      if (attachedImage) {
-        // Image + voice caption: must use text API (Gemini Live doesn't handle images)
-        sendImageQuietRef.current(attachedImage, text, modeRef.current);
-        setImageFile(null);
-        setImagePreview(null);
-      } else if (!voiceActiveRef.current) {
-        // Text-only (no voice active): send via text API
-        sendTextQuietRef.current(text, modeRef.current);
-      }
-      // When voiceActive && no image: Gemini Live handles it via audio — don't send text
+      sendTextQuietRef.current(text, modeRef.current);
     }
   }, [setTranscript]);
 
@@ -214,33 +191,23 @@ export default function SessionPage() {
   function handleImagePick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !file.type.startsWith("image/")) return;
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
-    log.image("Image selected", {
+    log.image("Image captured — auto-sending", {
       name: file.name,
       type: file.type,
       size: `${(file.size / 1024).toFixed(1)} KB`,
     });
-    e.target.value = "";
-  }
 
-  function handleImageClear() {
-    if (imagePreview) URL.revokeObjectURL(imagePreview);
-    setImageFile(null);
-    setImagePreview(null);
+    // Auto-send immediately — no staging/upload step
+    if (isActive) {
+      sendImage(file, "", mode);
+    }
+    e.target.value = "";
   }
 
   function handleSend() {
     if (!canSend) return;
-    if (imageFile) {
-      sendImage(imageFile, text.trim(), mode);
-      handleImageClear();
-      setText("");
-    } else {
-      sendText(text.trim(), mode);
-      setText("");
-    }
+    sendText(text.trim(), mode);
+    setText("");
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -385,48 +352,14 @@ export default function SessionPage() {
               disabled={!isActive}
             />
 
-            {/* Image / attachment card */}
+            {/* Camera tip */}
             <div className="rounded-2xl bg-slate-900/80 border border-slate-800/70 px-4 py-3">
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <div>
-                  <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-                    Problem image
-                  </span>
-                  <p className="text-xs text-slate-500">
-                    {imageFile ? "Attached — sent with your next message" : "Snap or upload homework"}
-                  </p>
-                </div>
-              </div>
-
-              {imagePreview && imageFile ? (
-                <div className="mt-2 flex items-center gap-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={imagePreview}
-                    alt="Math problem preview"
-                    className="h-14 w-14 rounded-lg object-cover border border-slate-700 shrink-0 bg-slate-950"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-slate-200 truncate">
-                      {imageFile.name}
-                    </p>
-                    <p className="text-[11px] text-slate-500">
-                      {(imageFile.size / 1024).toFixed(1)} KB
-                    </p>
-                    <button
-                      onClick={handleImageClear}
-                      className="mt-1 text-[11px] text-slate-400 hover:text-slate-100 underline-offset-2 hover:underline"
-                      type="button"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-2 rounded-xl border border-dashed border-slate-700/80 bg-slate-950/40 px-3 py-2.5 text-xs text-slate-500">
-                  Use the 📷 button below to attach a photo of your worksheet.
-                </div>
-              )}
+              <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                Camera
+              </span>
+              <p className="mt-1 text-xs text-slate-500">
+                Tap 📷 below to snap a math problem — it sends automatically.
+              </p>
             </div>
           </aside>
         </div>
@@ -502,20 +435,17 @@ export default function SessionPage() {
       {/* ── Composer bar (pinned to bottom) ────────────────────────────────── */}
       <div className="flex-none flex items-end gap-1.5 sm:gap-2 px-2 sm:px-4 py-2 sm:py-3 border-t border-slate-800/60 bg-slate-950">
 
-        {/* Attach image */}
+        {/* Camera — auto-sends on capture */}
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={!isActive}
-          title="Snap or upload a math problem"
-          className={`
+          title="Snap a math problem"
+          className="
             flex-none w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center
             text-sm sm:text-base transition-all duration-150
-            ${imageFile
-              ? "bg-emerald-700 text-white ring-1 ring-emerald-500"
-              : "bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200"
-            }
+            bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-slate-200
             disabled:opacity-30 disabled:cursor-not-allowed
-          `}
+          "
           type="button"
         >
           📷
@@ -559,8 +489,6 @@ export default function SessionPage() {
           placeholder={
             voiceActive
               ? "Listening… speak or type"
-              : imageFile
-              ? "Ask about the image… (optional)"
               : isActive
               ? "Type a math problem…"
               : "Tap Start to begin"
@@ -578,7 +506,7 @@ export default function SessionPage() {
         <button
           onClick={handleSend}
           disabled={!canSend}
-          title={imageFile ? "Send math problem image" : "Send"}
+          title="Send"
           className="
             flex-none w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-600 hover:bg-emerald-500
             text-white flex items-center justify-center font-bold text-sm sm:text-base

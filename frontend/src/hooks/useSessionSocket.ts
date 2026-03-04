@@ -15,7 +15,6 @@ const HEALTH_URL = WS_URL.replace(/^ws(s)?:\/\//, "http$1://").replace(/\/ws\/se
 // ── Voice audio constants ─────────────────────────────────────────────────────
 const MIC_SAMPLE_RATE  = 16000;  // Gemini input: 16 kHz
 const OUT_SAMPLE_RATE  = 24000;  // Gemini output: 24 kHz
-const SAMPLES_PER_CHUNK = Math.floor((MIC_SAMPLE_RATE * 100) / 1000); // 100 ms
 
 export type SessionStatus = "idle" | "connecting" | "connected" | "error";
 export type LiveState =
@@ -299,29 +298,29 @@ export function useSessionSocket() {
     const processor = ctx.createScriptProcessor(4096, 1, 1);
     processorRef.current = processor;
 
-    let accumulated: Float32Array[] = [];
-    let count = 0;
+    const inputRate = ctx.sampleRate;
+    const ratio     = inputRate / MIC_SAMPLE_RATE;
+    log.voice(`Mic: ${inputRate}Hz → ${MIC_SAMPLE_RATE}Hz (ratio ${ratio.toFixed(2)})`);
 
     processor.onaudioprocess = (event) => {
       if (ws.readyState !== WebSocket.OPEN) return;
 
-      const float32 = event.inputBuffer.getChannelData(0);
-      accumulated.push(new Float32Array(float32));
-      count += float32.length;
+      const input = event.inputBuffer.getChannelData(0);
 
-      if (count >= SAMPLES_PER_CHUNK) {
-        const int16 = new Int16Array(count);
-        let offset  = 0;
-        for (const chunk of accumulated) {
-          for (let i = 0; i < chunk.length; i++) {
-            const clamped   = Math.max(-1, Math.min(1, chunk[i]));
-            int16[offset++] = clamped * 32767;
-          }
-        }
-        ws.send(int16.buffer);
-        accumulated = [];
-        count       = 0;
+      // Resample from native rate to 16 kHz + convert to Int16 PCM
+      const outLen = Math.round(input.length / ratio);
+      const int16  = new Int16Array(outLen);
+      for (let i = 0; i < outLen; i++) {
+        const srcIdx = i * ratio;
+        const floor  = Math.floor(srcIdx);
+        const frac   = srcIdx - floor;
+        const s0     = input[floor] || 0;
+        const s1     = input[Math.min(floor + 1, input.length - 1)] || 0;
+        const val    = Math.max(-1, Math.min(1, s0 + frac * (s1 - s0)));
+        int16[i]     = val * 32767;
       }
+
+      ws.send(int16.buffer);
     };
 
     // Route through a silent gain node — ScriptProcessorNode requires a
@@ -354,7 +353,7 @@ export function useSessionSocket() {
       mediaStreamRef.current = stream;
       log.voice("Mic permission granted");
 
-      const captureCtx     = new AudioContext({ sampleRate: MIC_SAMPLE_RATE });
+      const captureCtx     = new AudioContext();  // native rate; resampled in capture
       audioCtxRef.current  = captureCtx;
 
       const playbackCtx       = new AudioContext({ sampleRate: OUT_SAMPLE_RATE });
