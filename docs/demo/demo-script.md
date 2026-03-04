@@ -3,6 +3,7 @@
 **Duration:** 3:50 (10-second buffer under the 4-minute limit)
 **Audience:** Gemini Live Agent Challenge judges
 **Goal:** Hit all three judging criteria — Innovation & Multimodal UX (40%), Technical Implementation (30%), Demo & Presentation (30%)
+**Version:** v0.5.1
 
 ---
 
@@ -10,7 +11,7 @@
 
 ### [0:00–0:15] Hook — The Problem (15 seconds)
 
-**[Show the session page, idle state. Camera/mic off. Just the clean UI.]**
+**[Show the session page, idle state. Camera/mic off. The AmbientOrb glows a calm slate color in the center. Clean obsidian UI.]**
 
 > "Most AI tutoring tools are just glorified chat boxes — you type a question, wait, get a wall of text. That's not how real tutoring works.
 >
@@ -22,15 +23,15 @@
 
 ### [0:15–0:30] Start Session — Show It's Live (15 seconds)
 
-**[Click "Start session"]**
+**[Click "Start Tutoring" button (green, top-right)]**
 
 > "One click to start a live session."
 
-**[Point to live state indicator as it transitions: Connecting → Live → Listening]**
+**[Point to the AmbientOrb as it transitions colors: slate → yellow → emerald. The background grid and glow also shift color.]**
 
-> "Watch the state indicator — **Connecting**… **Live**… and the mic activates automatically. Audio is now streaming full-duplex to Gemini's Live API. No latency. No turn-taking."
+> "Watch the orb — it's a real-time state visualization. **Connecting**… **Live**… and the mic activates automatically. Audio is now streaming full-duplex to Gemini's Live API. No latency. No turn-taking."
 
-**Why this works for judges:** Shows "truly live, not fragmented/turn-based" (Innovation criterion).
+**Why this works for judges:** Shows "truly live, not fragmented/turn-based" (Innovation criterion). The AmbientOrb makes the state change visually dramatic.
 
 ---
 
@@ -40,13 +41,13 @@
 
 > "Explain how to solve 2x plus 5 equals 17."
 
-**[As transcript updates in real-time, point to it]**
+**[As transcript updates in real-time, point to the transcript canvas (rounded glass card)]**
 
-> "My words are transcribed live using the Web Speech API — you can see them appearing word by word.
+> "My words are transcribed live using the Web Speech API — you can see them appearing word by word in the transcript.
 
-**[State changes: Listening → Thinking → Speaking. Audio starts.]**
+**[AmbientOrb changes: rose (Listening) → sky blue (Thinking) → emerald (Speaking). Audio starts.]**
 
-> The state shifts to **Thinking**, then **Speaking**. Faheem is explaining the solution step by step — with audio and a written transcript, both updating in real time."
+> The orb shifts to **Thinking**, then **Speaking**. Faheem is explaining the solution step by step — with audio and a written transcript, both updating in real time."
 
 **[Let Faheem speak for ~15-20 seconds. Don't rush — let judges hear the quality of the voice response and see the transcript populate.]**
 
@@ -62,9 +63,9 @@
 
 > "Wait — what happens to the 5?"
 
-**[Point to the UI immediately]**
+**[Point to the AmbientOrb as it flashes orange (Interrupted) then back to rose (Listening)]**
 
-> "Watch — the state just flashed **Interrupted** in orange. Faheem stopped mid-sentence the instant I spoke. No button, no waiting for him to finish — I just talked over him, exactly like you'd interrupt a real tutor.
+> "Watch — the orb just flashed **orange** — Interrupted. Faheem stopped mid-sentence the instant I spoke. No button, no waiting for him to finish — I just talked over him, exactly like you'd interrupt a real tutor.
 >
 > This is **barge-in handling** — Gemini's Live API detects that I started speaking and gracefully stops its own output."
 
@@ -72,13 +73,13 @@
 
 > "And now he's answering my follow-up — context preserved, no confusion."
 
-**Why this works for judges:** Barge-in is the #1 differentiator for the Live Agents category. Make it dramatic and undeniable.
+**Why this works for judges:** Barge-in is the #1 differentiator for the Live Agents category. The AmbientOrb makes the state change visually undeniable.
 
 ---
 
 ### [1:45–2:10] Quiz Mode — Behavior Adapts (25 seconds)
 
-**[Click "Quiz" tab in mode selector]**
+**[Click "Quiz" tab in the ModeSelector (segmented control in header on desktop, or top of main area on mobile)]**
 
 > "I'll switch to **Quiz mode** mid-session."
 
@@ -94,39 +95,37 @@
 
 ---
 
-### [2:10–2:55] Vision — Image Upload (45 seconds)
+### [2:10–2:55] Vision — Camera Auto-Send (45 seconds)
 
-**[Click "Homework" tab, then click 📷 camera icon]**
+**[Click "Homework" tab, then tap the Camera button (📷) in the floating composer at the bottom]**
 
-> "Now the multimodal part — I'll upload a photo of a handwritten math problem."
+> "Now the multimodal part — I'll snap a photo of a handwritten math problem."
 
-**[Select and upload the test image. Image preview appears.]**
+**[The native camera/file picker opens. Capture or select the test image. Image is sent INSTANTLY — a brief "📷 Image Sent" toast appears.]**
 
-> "Here's the preview. I can speak or type a caption."
+> "Notice — no upload step, no preview, no extra button. The moment I capture the image, it's sent directly to Gemini. Zero friction."
 
-**[Speak or type:]**
+**[AmbientOrb turns violet (Seeing). State label says "Seeing… Reading your image".]**
 
-> "Help me solve this step by step."
+> "The orb turns violet — **Seeing** — Gemini's 2.5 Flash vision model is reading the image.
 
-**[Click send ↑. Point to state indicator.]**
-
-> "The state shows **Seeing** — Gemini is reading the image with the 2.5 Flash vision model.
-
-**[Faheem responds. Let him speak ~15 seconds.]**
+**[Faheem responds with a step-by-step solution. Let him speak ~15 seconds.]**
 
 > And here's the step-by-step solution — read directly from handwriting. Voice, text, and vision all flowing through a **single WebSocket connection**."
 
-**Why this works for judges:** Demonstrates "See, Hear, Speak" (Innovation criterion) and mentions technical architecture (Technical criterion).
+**Why this works for judges:** Demonstrates "See, Hear, Speak" (Innovation criterion), shows the streamlined camera flow, and mentions technical architecture (Technical criterion).
 
 ---
 
 ### [2:55–3:25] Architecture & Cloud — Technical Proof (30 seconds)
 
-**[OPTION A: Show architecture diagram briefly (recommended — open it in a new tab or overlay)]**
+**[OPTION A: Show architecture diagram briefly (recommended — open docs/architecture/architecture-diagram.png in a new tab)]**
 
 > "Under the hood: a **single WebSocket** carries all three modalities — binary PCM audio frames, JSON text messages, and base64-encoded images. The FastAPI backend uses `asyncio` with two concurrent tasks — one upstream to Gemini, one downstream to the browser.
 
-**[OPTION B: If no diagram overlay, just narrate while pointing at the live strip]**
+> Audio is captured at the device's native sample rate and resampled to 16 kilohertz using linear interpolation — so it works on every device, including mobile.
+
+**[OPTION B: If no diagram overlay, just narrate while pointing at the AmbientOrb and UI]**
 
 > The whole stack runs on **Google Cloud Run** — backend and frontend. Gemini 2.5 Flash handles voice natively through the Live API, and text and vision go through the standard generate API. All built with the **Google GenAI SDK**."
 
@@ -136,13 +135,15 @@
 
 ### [3:25–3:45] End Session & Recap (20 seconds)
 
-**[Click "End session"]**
+**[Click "End Session" button (red, top-right)]**
 
 > "When the session ends, Faheem sends a recap — topics covered, session duration, problems worked through."
 
-**[Point to recap message in transcript. Point to timer.]**
+**[Point to recap message in transcript. Point to timer display in the header.]**
 
-> "The session timer tracked the whole thing. Everything is cleaned up gracefully — WebSocket closed, audio stopped, state back to Ready."
+> "The session timer tracked the whole thing. Everything is cleaned up gracefully — WebSocket closed, audio stopped, and the orb returns to its resting state."
+
+**[AmbientOrb settles back to slate (idle).]**
 
 ---
 
@@ -158,10 +159,12 @@
 
 - [x] **Real-time voice** — Gemini Live API, full-duplex audio
 - [x] **Barge-in / interruption** — Live Agents category requirement (emphasized)
-- [x] **Live transcription** — Web Speech API, partial + final results
+- [x] **Live transcription** — Web Speech API, partial + final results, echo suppression
+- [x] **Dual response path** — Voice transcripts also sent to text API for guaranteed text reply
 - [x] **Mode switching** — Explain / Quiz / Homework, mid-session
-- [x] **Vision** — Image upload, handwriting recognition
-- [x] **Architecture narration** — Single WebSocket, asyncio tasks, Cloud Run
+- [x] **Vision (camera auto-send)** — Tap camera, capture, auto-send (no upload step)
+- [x] **AmbientOrb** — Animated state visualization (9 states, color-coded)
+- [x] **Architecture narration** — Single WebSocket, asyncio tasks, audio resampling, Cloud Run
 - [x] **Cloud deployment proof** — Mentioned by name, live app is the demo itself
 - [x] **Session timer & recap** — Accountability and closure
 - [x] **GenAI SDK** — Mentioned explicitly
@@ -170,9 +173,9 @@
 
 | Criterion | Weight | Where in Demo |
 |-----------|--------|---------------|
-| Innovation & Multimodal UX | 40% | 0:00 hook, 0:30 voice, 1:10 barge-in, 2:10 vision |
-| Technical Implementation | 30% | 2:55 architecture narration, SDK/Cloud mentions throughout |
-| Demo & Presentation | 30% | Clean UI throughout, real software, live responses |
+| Innovation & Multimodal UX | 40% | 0:00 hook, 0:15 AmbientOrb, 0:30 voice, 1:10 barge-in, 2:10 camera auto-send |
+| Technical Implementation | 30% | 2:55 architecture narration, audio resampling, SDK/Cloud mentions throughout |
+| Demo & Presentation | 30% | Clean obsidian UI, AmbientOrb animations, real software, live responses |
 
 ---
 
@@ -180,10 +183,13 @@
 
 - **Barge-in timing is everything.** Practice the 1:10 interruption so Faheem is clearly mid-sentence when you cut in. If the timing is off, re-record just that section.
 - **Let Faheem talk.** Don't narrate over his responses — let judges hear the voice quality for 10-15 seconds at a time.
+- **The AmbientOrb is your visual anchor.** Point to it during state changes — it makes the agent's state transitions dramatic and unmistakable on video.
+- **Camera auto-send is fast.** Have your test image ready. The moment you select/capture it, it sends — so make sure to call attention to the speed.
 - **Zoom to 110%.** UI elements read better on video at slight zoom.
 - **Record at 1080p.** Export at 1920x1080 minimum.
 - **Trim aggressively.** Any silence over 2 seconds should be cut.
 - **Don't show the console.** F12 closed. Clean UI only.
+- **Use desktop width if possible.** The aside panel (ExamplesPanel, Quick Tip) only shows on xl screens (≥1280px).
 
 ## Fallback Plan
 
@@ -193,7 +199,8 @@
 | Deployed app is down | Switch to localhost. Say "same app deployed on Cloud Run" |
 | WebSocket disconnects | Refresh and restart. If persistent, use `GEMINI_STUB=true` |
 | Barge-in doesn't trigger cleanly | Re-record that section. Or say "interruption handling works — sometimes latency varies" |
+| Camera doesn't open | Use a pre-saved image from file picker. Same auto-send behavior applies |
 
 ---
 
-**Last updated:** 2026-03-03
+**Last updated:** 2026-03-04 (v0.5.1)
