@@ -6,9 +6,10 @@ Single-subject math tutor with voice, text, and image input. English UI.
 
 ## Stack
 - Next.js 14 frontend (Tailwind CSS, TypeScript, Framer Motion, Lucide icons)
-- FastAPI backend (WebSocket + Gemini Live API)
+- FastAPI backend (WebSocket + WebRTC via aiortc + Gemini Live API)
 - Google Cloud Run (us-central1)
 - Gemini 2.5 Flash (native audio via Live API + text via standard API)
+- WebRTC audio transport (Opus codec, AEC/NS/AGC) with WS binary fallback
 - Cairo font via next/font/google
 
 ## Project Structure
@@ -27,7 +28,8 @@ Single-subject math tutor with voice, text, and image input. English UI.
 │   │   ├── ExamplesPanel.tsx   # Example prompts per mode
 │   │   └── HelpPanel.tsx       # Help modal
 │   ├── src/hooks/
-│   │   ├── useSessionSocket.ts # PRIMARY: single WS for text/image/voice
+│   │   ├── useSessionSocket.ts # PRIMARY: WS control + WebRTC audio integration
+│   │   ├── useWebRTC.ts        # WebRTC peer connection for audio transport
 │   │   ├── useVoiceTranscription.ts # Web Speech API for live captions
 │   │   └── useSessionTimer.ts  # Session duration timer
 │   ├── .env.production         # NEXT_PUBLIC_WS_URL for Cloud Run builds
@@ -36,7 +38,8 @@ Single-subject math tutor with voice, text, and image input. English UI.
 │   ├── app/main.py             # Entry point (/, /health, /ws/session)
 │   ├── app/config.py           # Pydantic settings
 │   ├── app/services/live_client.py  # Gemini Live bridge (audio) + text/image APIs
-│   ├── app/ws/session_manager.py    # WebSocket lifecycle, mode addendums
+│   ├── app/ws/session_manager.py    # WebSocket lifecycle + WebRTC signaling
+│   ├── app/ws/webrtc_handler.py     # WebRTC audio transport via aiortc
 │   ├── app/agents/tutor_agent.py    # TutorAgent + tool schemas + Live config
 │   ├── app/tools/              # detect_problem_type, check_answer, hints, recap
 │   ├── app/prompts/system_prompt.md # Math tutor system prompt
@@ -54,10 +57,12 @@ Single-subject math tutor with voice, text, and image input. English UI.
 - **Font:** Cairo (loaded via next/font/google with CSS variable --font-cairo)
 
 ## Key Architecture
-- Single WebSocket `/ws/session` handles ALL: text (JSON), image (JSON), voice (binary PCM)
-- Binary frames = PCM audio (16kHz in, 24kHz out)
-- JSON frames = text/image messages + status/error/recap control
-- Voice audio: browser captures at native sample rate, resamples to 16kHz before sending
+- **WebRTC audio transport** (primary): browser ↔ backend via aiortc RTCPeerConnection
+  - Browser getUserMedia with AEC, noise suppression, auto gain control
+  - Opus codec, signaling via existing WebSocket
+  - Backend: decode Opus → 16kHz PCM → Gemini Live API → 24kHz PCM → Opus encode → browser
+- **WebSocket fallback**: binary PCM frames if WebRTC ICE fails (e.g. Cloud Run without TURN)
+- WebSocket `/ws/session` = control channel: text/image (JSON), signaling, status
 - Web Speech API provides live transcription captions alongside Gemini Live audio
 - Final transcripts always sent to text API for guaranteed text response
 - Camera auto-sends captured images immediately (no staging/upload step)
@@ -110,6 +115,9 @@ Running `next dev` via the preview tool uses `next dev frontend` from the projec
 - `GEMINI_STUB` — Set true to skip real API calls for testing
 - `CORS_ORIGINS` — JSON array of allowed origins
 - `NEXT_PUBLIC_WS_URL` — WebSocket URL for frontend → backend (set in frontend/.env.production for Cloud Run)
+- `STUN_URLS` — JSON array of STUN server URLs (default: Google's public STUN servers)
+- `TURN_URL` — Optional TURN server URL for NAT traversal on Cloud Run
+- `TURN_USERNAME` / `TURN_CREDENTIAL` — TURN server credentials
 
 ## API Endpoints
 - `GET /` — Service info

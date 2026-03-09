@@ -5,6 +5,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import type { TranscriptEntry } from "@/components/TranscriptPanel";
 import type { TutorMode } from "@/components/ModeSelector";
 import { log } from "@/lib/log";
+import { useWebRTC } from "./useWebRTC";
 
 const WS_URL =
   process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000/ws/session";
@@ -48,7 +49,14 @@ export function useSessionSocket() {
   // WebSocket
   const wsRef = useRef<WebSocket | null>(null);
 
-  // Voice / audio refs
+  // WebRTC audio transport (preferred over WS binary)
+  const webrtc = useWebRTC();
+  const webrtcRef = useRef(webrtc);
+  webrtcRef.current = webrtc;
+  // Track whether WebRTC is being used for this session
+  const usingWebRTCRef = useRef(false);
+
+  // Voice / audio refs (used only in WS binary fallback mode)
   const mediaStreamRef   = useRef<MediaStream | null>(null);
   const audioCtxRef      = useRef<AudioContext | null>(null);
   const processorRef     = useRef<ScriptProcessorNode | null>(null);
@@ -86,13 +94,16 @@ export function useSessionSocket() {
     const ctx = playbackCtxRef.current;
     if (!ctx) return;
 
-    // Mark tutor as speaking; clear the flag ~600ms after the last chunk arrives
-    setIsSpeaking(true);
-    if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current);
-    speakingTimerRef.current = setTimeout(() => {
-      setIsSpeaking(false);
-      log.voice("Tutor audio playback ended");
-    }, 600);
+    // In WS fallback mode, also use chunk arrival as a speaking signal
+    // (speaking_start/speaking_end control frames are the primary mechanism,
+    // but this provides a safety net for WS-only mode)
+    if (!usingWebRTCRef.current) {
+      setIsSpeaking(true);
+      if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current);
+      speakingTimerRef.current = setTimeout(() => {
+        setIsSpeaking(false);
+      }, 600);
+    }
 
     const int16   = new Int16Array(pcmBytes);
     const float32 = new Float32Array(int16.length);
@@ -115,6 +126,7 @@ export function useSessionSocket() {
   // ── Voice cleanup (stable — only uses refs + stable setter) ───────────────
 
   const stopVoiceCleanup = useCallback(() => {
+    // Clean up WS fallback audio resources
     mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
     mediaStreamRef.current = null;
 
@@ -176,9 +188,11 @@ export function useSessionSocket() {
       };
 
       ws.onmessage = (event) => {
-        // Binary frame = PCM audio from Gemini Live
+        // Binary frame = PCM audio from Gemini Live (WS fallback only)
         if (typeof event.data !== "string") {
-          scheduleAudioChunk(event.data as ArrayBuffer);
+          if (!usingWebRTCRef.current) {
+            scheduleAudioChunk(event.data as ArrayBuffer);
+          }
           return;
         }
 
@@ -193,6 +207,37 @@ export function useSessionSocket() {
 
         log.ws(`Received type=${msg.type}`, msg);
 
+        // ── WebRTC signaling ────────────────────────────────────────────
+        if (msg.type === "rtc_answer" && typeof msg.sdp === "string") {
+          log.voice("[WebRTC] Received SDP answer from server");
+          webrtcRef.current.handleAnswer(msg.sdp as string);
+          return;
+        }
+        if (msg.type === "rtc_error") {
+          log.voice("[WebRTC] Server-side error, falling back to WS audio");
+          usingWebRTCRef.current = false;
+          return;
+        }
+
+        // ── Speaking state (used by both WebRTC and WS modes) ───────────
+        if (msg.type === "status" && msg.value === "speaking_start") {
+          setIsSpeaking(true);
+          if (speakingTimerRef.current) {
+            clearTimeout(speakingTimerRef.current);
+            speakingTimerRef.current = null;
+          }
+          return;
+        }
+        if (msg.type === "status" && msg.value === "speaking_end") {
+          // Small delay before clearing speaking state (audio still draining)
+          if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current);
+          speakingTimerRef.current = setTimeout(() => {
+            setIsSpeaking(false);
+          }, usingWebRTCRef.current ? 300 : 600);
+          return;
+        }
+
+        // ── Session status ──────────────────────────────────────────────
         if (msg.type === "status" && msg.value === "connected") {
           log.session("Connected", { session_id: msg.session_id });
           setStatus("connected");
@@ -202,6 +247,23 @@ export function useSessionSocket() {
             text: "Hi! I'm Faheem, your math tutor — what problem are we solving today?",
             timestamp: timestamp(),
           });
+
+          // Attempt WebRTC upgrade for audio transport
+          const iceServers = (msg.ice_servers as RTCIceServer[] | undefined) ?? [];
+          webrtcRef.current
+            .negotiate(ws, iceServers)
+            .then((ok) => {
+              usingWebRTCRef.current = ok;
+              log.voice(
+                ok
+                  ? "[WebRTC] Audio transport active"
+                  : "[WebRTC] Falling back to WebSocket audio"
+              );
+            })
+            .catch(() => {
+              usingWebRTCRef.current = false;
+              log.voice("[WebRTC] Negotiation failed — using WS audio");
+            });
         } else if (msg.type === "message" && typeof msg.text === "string") {
           log.ws("Tutor message received", { text: msg.text.slice(0, 80) });
           setIsThinking(false);
@@ -239,6 +301,11 @@ export function useSessionSocket() {
         // without this guard the stale onclose would kill the retry.
         if (wsRef.current === ws) {
           stopVoiceCleanup();
+          // Clean up WebRTC
+          if (usingWebRTCRef.current) {
+            webrtcRef.current.close();
+            usingWebRTCRef.current = false;
+          }
           setStatus("idle");
           setIsThinking(false);
           wsRef.current = null;
@@ -280,6 +347,13 @@ export function useSessionSocket() {
   const stopSession = useCallback(() => {
     log.session("Stopping session");
     stopVoiceCleanup();
+
+    // Close WebRTC if active
+    if (usingWebRTCRef.current) {
+      webrtcRef.current.close();
+      usingWebRTCRef.current = false;
+    }
+
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send("END");
@@ -342,14 +416,31 @@ export function useSessionSocket() {
       log.voice("startVoice: WS not open — ignoring");
       return;
     }
+
+    // ── WebRTC mode: just unmute the track ────────────────────────────────
+    if (usingWebRTCRef.current) {
+      log.voice("startVoice: enabling WebRTC mic track");
+      webrtcRef.current.setMicEnabled(true);
+      setVoiceActive(true);
+      log.state("connected → listening (WebRTC)");
+      return;
+    }
+
+    // ── WS fallback mode: capture + resample + stream over WS ─────────────
     if (mediaStreamRef.current) {
       log.voice("startVoice: already capturing — ignoring");
       return;
     }
 
-    log.voice("Requesting mic permission");
+    log.voice("Requesting mic permission (WS fallback)");
     try {
-      const stream         = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream         = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       mediaStreamRef.current = stream;
       log.voice("Mic permission granted");
 
@@ -362,7 +453,7 @@ export function useSessionSocket() {
 
       startMicCapture(captureCtx, stream, ws);
       setVoiceActive(true);
-      log.state("connected → listening");
+      log.state("connected → listening (WS fallback)");
     } catch (err) {
       log.error("Mic permission denied or AudioContext failed", err);
     }
@@ -372,6 +463,16 @@ export function useSessionSocket() {
 
   const stopVoice = useCallback(() => {
     log.voice("stopVoice called by user");
+
+    // WebRTC mode: mute the track (don't tear down)
+    if (usingWebRTCRef.current) {
+      webrtcRef.current.setMicEnabled(false);
+      setVoiceActive(false);
+      log.state("listening → connected (WebRTC mic muted)");
+      return;
+    }
+
+    // WS fallback: full cleanup
     stopVoiceCleanup();
   }, [stopVoiceCleanup]);
 
@@ -514,6 +615,8 @@ export function useSessionSocket() {
     sendImageQuiet,
     startVoice,
     stopVoice,
+    /** Whether audio is flowing via WebRTC (vs WebSocket binary fallback) */
+    usingWebRTC: webrtc.isRTCConnected,
   };
 }
 

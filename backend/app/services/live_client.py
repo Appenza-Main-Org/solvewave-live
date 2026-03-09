@@ -168,6 +168,12 @@ class LiveClient:
                 ):
                     for part in response.server_content.model_turn.parts:
                         if part.inline_data and part.inline_data.data:
+                            # Notify frontend that tutor audio is starting
+                            if audio_chunks_sent == 0 and send_control:
+                                try:
+                                    await send_control({"type": "status", "value": "speaking_start"})
+                                except Exception:
+                                    pass
                             await send_audio(part.inline_data.data)
                             audio_chunks_sent += 1
                         elif part.text:
@@ -182,6 +188,12 @@ class LiveClient:
                         "[FaheemLive][backend][voice] turn complete | audio_chunks=%d text_parts=%d [%s]",
                         audio_chunks_sent, len(turn_text_parts), config.session_id,
                     )
+                    # Notify frontend that tutor audio has ended
+                    if audio_chunks_sent > 0 and send_control:
+                        try:
+                            await send_control({"type": "status", "value": "speaking_end"})
+                        except Exception:
+                            pass
                     # If Gemini returned text alongside audio, send it as a
                     # transcript entry so the conversation is visible in the UI.
                     if turn_text_parts and send_control:

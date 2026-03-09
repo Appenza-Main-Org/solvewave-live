@@ -14,6 +14,15 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:3000"]
     log_level: str = "INFO"
 
+    # WebRTC ICE configuration
+    stun_urls: list[str] = [
+        "stun:stun.l.google.com:19302",
+        "stun:stun1.l.google.com:19302",
+    ]
+    turn_url: str | None = None        # e.g. "turn:turn.example.com:3478"
+    turn_username: str | None = None
+    turn_credential: str | None = None
+
     @model_validator(mode="after")
     def validate_api_key_requirement(self):
         """Ensure API key is provided when not in stub mode."""

@@ -1,4 +1,4 @@
-# Architecture Diagram — Faheem Math (v0.5.1)
+# Architecture Diagram — Faheem Math (v0.6.0)
 
 This document describes the architecture diagram for Faheem Math. Use this as a reference to create a visual diagram (PNG/SVG).
 
@@ -6,11 +6,26 @@ This document describes the architecture diagram for Faheem Math. Use this as a 
 
 ## Overview
 
-Faheem Math uses a **single WebSocket connection** for all modalities (voice, text, images), with three main layers:
+Faheem Math uses **WebRTC for real-time audio transport** (with WebSocket fallback) and a **WebSocket control channel** for text, images, and signaling, with three main layers:
 
-1. **Browser (Frontend)** — Next.js 14, React, Framer Motion, Web Audio API, Web Speech API
-2. **Backend (API Layer)** — FastAPI, asyncio, WebSocket, mode routing
+1. **Browser (Frontend)** — Next.js 14, React, Framer Motion, WebRTC, Web Speech API
+2. **Backend (API Layer)** — FastAPI, asyncio, aiortc (WebRTC), WebSocket, mode routing
 3. **Gemini Live API (Google Cloud)** — Audio, text, and vision processing
+
+### Audio Transport: WebRTC (Primary) vs WebSocket (Fallback)
+
+| Aspect | WebRTC (Primary) | WebSocket (Fallback) |
+|--------|------------------|----------------------|
+| **Transport** | DTLS/SRTP over UDP | TCP (binary frames) |
+| **Codec** | Opus (browser-native) | Raw PCM (16-bit) |
+| **Echo Cancellation** | Browser-level AEC | Software guard only |
+| **Noise Suppression** | Browser-level NS | None |
+| **Auto Gain Control** | Browser-level AGC | None |
+| **Playback** | Automatic (remote track) | Manual PCM scheduling |
+| **Signaling** | Via existing WebSocket | N/A |
+| **Fallback trigger** | ICE failure / no UDP | Automatic |
+
+**Competition compliance**: Gemini Live API remains the mandatory AI engine. WebRTC is only the browser ↔ backend audio transport layer. All audio is still processed by Gemini Live API on Google Cloud.
 
 ---
 
@@ -58,27 +73,31 @@ Faheem Math uses a **single WebSocket connection** for all modalities (voice, te
 |  |  Core Hooks & Services                                               | |
 |  |                                                                       | |
 |  |  +---------------------------+  +----------------------------------+ | |
-|  |  | useSessionSocket.ts       |  | useVoiceTranscription.ts         | | |
-|  |  | - WebSocket client        |  | - Web Speech API                 | | |
-|  |  | - Send text/image         |  | - Partial & final transcripts    | | |
-|  |  | - Audio playback (24kHz)  |  | - Echo suppression (isSpeaking)  | | |
-|  |  | - Live state management   |  | - Auto-send finals to text API   | | |
-|  |  | - Mic capture + resample  |  +----------------------------------+ | |
-|  |  +---------------------------+                                       | |
+|  |  | useSessionSocket.ts       |  | useWebRTC.ts                     | | |
+|  |  | - WebSocket control chan.  |  | - RTCPeerConnection management   | | |
+|  |  | - Send text/image (JSON)  |  | - getUserMedia (AEC/NS/AGC)      | | |
+|  |  | - WebRTC negotiation      |  | - SDP offer/answer via WS        | | |
+|  |  | - Live state management   |  | - Mic mute/unmute for voice      | | |
+|  |  | - WS binary fallback      |  | - Remote audio auto-playback     | | |
+|  |  +---------------------------+  +----------------------------------+ | |
 |  |                                                                       | |
 |  |  +---------------------------+  +----------------------------------+ | |
-|  |  | Web Audio API             |  | useSessionTimer.ts               | | |
-|  |  | - Mic: native rate -> 16k |  | - Start on WS connect            | | |
-|  |  |   (linear interpolation)  |  | - Freeze on stop                 | | |
-|  |  | - Playback: 24kHz PCM     |  | - mm:ss display                  | | |
-|  |  | - ScriptProcessorNode     |  +----------------------------------+ | |
+|  |  | useVoiceTranscription.ts  |  | useSessionTimer.ts               | | |
+|  |  | - Web Speech API          |  | - Start on WS connect            | | |
+|  |  | - Partial & final transc. |  | - Freeze on stop                 | | |
+|  |  | - Echo suppression        |  | - mm:ss display                  | | |
+|  |  | - Auto-send to text API   |  +----------------------------------+ | |
 |  |  +---------------------------+                                       | |
 |  +---------------------------------------------------------------------+ |
 +---------------------------------------------------------------------------+
                             |
-                            | WebSocket: /ws/session
-                            | - Binary frames (PCM audio, 16kHz -> 24kHz)
-                            | - JSON frames (text, image, control)
+                            | WebRTC: audio (primary)
+                            | - Opus-encoded bidirectional audio
+                            | - Browser AEC/NS/AGC applied
+                            |
+                            | WebSocket: /ws/session (control + fallback)
+                            | - JSON frames (text, image, signaling, control)
+                            | - Binary frames (PCM audio -- fallback only)
                             |
                             v
 +---------------------------------------------------------------------------+
@@ -93,23 +112,31 @@ Faheem Math uses a **single WebSocket connection** for all modalities (voice, te
 |  +---------------------------------------------------------------------+ |
 |                                                                           |
 |  +---------------------------------------------------------------------+ |
-|  |  session_manager.py -- WebSocket Lifecycle                           | |
+|  |  session_manager.py -- WebSocket Lifecycle + WebRTC Signaling        | |
 |  |                                                                       | |
 |  |  +--- handle_session() -- async entry point -----------------------+ | |
 |  |  |  1. Accept WebSocket connection                                 | | |
-|  |  |  2. Send {"type":"status","value":"connected"}                  | | |
+|  |  |  2. Send {"type":"status","value":"connected", "ice_servers":…} | | |
 |  |  |  3. Create asyncio.Queue (decouples receive from Gemini)        | | |
 |  |  |  4. Run two concurrent tasks:                                   | | |
-|  |  |     - receive_loop() -- Browser -> Queue                        | | |
+|  |  |     - receive_loop() -- Browser -> Queue (+ RTC signaling)      | | |
 |  |  |     - LiveClient.run() -- Queue -> Gemini -> Browser            | | |
-|  |  |  5. On disconnect: build & send recap                           | | |
+|  |  |  5. On disconnect: close WebRTC + build & send recap            | | |
 |  |  +----------------------------------------------------------------+ | |
 |  |                                                                       | |
 |  |  +--- Message Routing (based on JSON "type") ---------------------+ | |
+|  |  |  - "rtc_offer" -> WebRTCHandler.handle_offer() -> rtc_answer    | | |
 |  |  |  - "text"  -> LiveClient.generate_text_reply()                  | | |
 |  |  |  - "image" -> LiveClient.generate_image_reply()                 | | |
-|  |  |  - binary  -> audio_queue.put(bytes)                            | | |
+|  |  |  - binary  -> audio_queue.put(bytes) [WS fallback only]         | | |
 |  |  |  - "END"   -> audio_queue.put(None) -> graceful shutdown        | | |
+|  |  +----------------------------------------------------------------+ | |
+|  |                                                                       | |
+|  |  +--- webrtc_handler.py -- WebRTC Audio Transport -----------------+ | |
+|  |  |  - aiortc RTCPeerConnection (STUN/TURN configurable)            | | |
+|  |  |  - Incoming: browser audio -> decode Opus -> resample 16kHz     | | |
+|  |  |  - Outgoing: Gemini 24kHz PCM -> resample 48kHz -> encode Opus  | | |
+|  |  |  - GeminiOutputTrack (custom MediaStreamTrack for response)     | | |
 |  |  +----------------------------------------------------------------+ | |
 |  |                                                                       | |
 |  |  +--- Mode Addendums (injected at runtime) -----------------------+ | |
@@ -185,14 +212,26 @@ Faheem Math uses a **single WebSocket connection** for all modalities (voice, te
 
 ### 1. Voice Interaction (Listening -> Speaking)
 
+**WebRTC mode (primary):**
 ```
-Student speaks -> AudioContext captures at native rate ->
+Student speaks -> getUserMedia (AEC/NS/AGC enabled) ->
+  WebRTC audio track -> Opus encoded -> DTLS/SRTP ->
+    Backend aiortc decodes Opus -> resample to 16kHz PCM ->
+      audio_queue -> LiveClient streams to Gemini Live API ->
+        Gemini responds with 24kHz PCM ->
+          Backend resamples to 48kHz -> GeminiOutputTrack -> Opus encode ->
+            WebRTC audio track -> Browser auto-plays via <audio> element
+```
+
+**WebSocket fallback mode:**
+```
+Student speaks -> getUserMedia (AEC/NS/AGC enabled) ->
   ScriptProcessorNode resamples to 16kHz via linear interpolation ->
     WebSocket sends binary frame (Int16Array) ->
       Backend audio_queue.put(bytes) ->
         LiveClient streams to Gemini Live API ->
-          Gemini processes & responds with PCM (24kHz) ->
-            Backend sends binary frame to WebSocket ->
+          Gemini responds with 24kHz PCM ->
+            Backend sends binary frame via WebSocket ->
               Browser plays audio via AudioContext (24kHz)
 ```
 
@@ -273,29 +312,31 @@ Session starts -> Frontend starts timer (mm:ss) ->
 
 ## Key Architectural Decisions
 
-1. **Single WebSocket** -- All modalities (voice, text, images) use one connection
+1. **WebRTC audio transport** -- Browser ↔ backend audio via WebRTC (aiortc)
+   - Opus codec with browser-native AEC, noise suppression, auto gain control
+   - UDP-based transport (lower latency than TCP WebSocket)
+   - Automatic fallback to WebSocket binary audio if WebRTC fails
+   - Signaling via existing WebSocket (no separate signaling server)
+   - STUN/TURN servers configurable for NAT traversal
+
+2. **WebSocket control channel** -- Text, images, signaling, and state over one WS
    - Simplifies state management
    - Reduces connection overhead
-   - Easier to track session lifecycle
+   - WebRTC signaling (SDP offer/answer) flows over same WS
 
-2. **asyncio.Queue decoupling** -- WebSocket receive -> Queue -> Gemini
-   - Prevents backpressure (WebSocket can buffer faster than Gemini consumes)
+3. **asyncio.Queue decoupling** -- Audio source (WebRTC or WS) -> Queue -> Gemini
+   - Both WebRTC and WS fallback feed the same audio queue
+   - Prevents backpressure
    - Clean separation of concerns
 
-3. **Mode addendums at runtime** -- Base prompt + injected mode behavior
+4. **Mode addendums at runtime** -- Base prompt + injected mode behavior
    - Keeps tutor persona consistent
    - Allows mode switching without restarting session
    - Easier to maintain than 3 separate prompts
 
-4. **Two models** -- Live API for voice, standard API for text/images
+5. **Two models** -- Live API for voice, standard API for text/images
    - Gemini Live is optimized for audio streaming
    - Standard API is faster for text-only and more cost-effective
-
-5. **Audio resampling** -- Native rate -> 16kHz via linear interpolation
-   - Mobile browsers (iOS Safari) may ignore AudioContext sampleRate option
-   - ScriptProcessorNode captures at native rate (44.1/48kHz)
-   - Linear interpolation resamples to 16kHz before sending to backend
-   - Ensures correct PCM format regardless of device
 
 6. **Dual response path** -- Voice + text API for speech input
    - Web Speech API provides local transcription (no backend cost)
@@ -371,12 +412,17 @@ RootLayout (layout.tsx)
 SessionPage
   |
   +-- useSessionSocket()
-  |   +-- WebSocket connection management
+  |   +-- useWebRTC()                          <-- NEW: WebRTC audio transport
+  |   |   +-- RTCPeerConnection management
+  |   |   +-- getUserMedia (AEC/NS/AGC)
+  |   |   +-- SDP offer/answer exchange via WS
+  |   |   +-- Remote audio track auto-playback
+  |   |   +-- Mic mute/unmute for voice toggle
+  |   +-- WebSocket control channel
   |   +-- startSession / stopSession
   |   +-- sendText / sendTextQuiet / sendImage
-  |   +-- startVoice / stopVoice
-  |   +-- Mic capture (AudioContext + ScriptProcessorNode + resample)
-  |   +-- Audio playback (24kHz PCM via AudioContext)
+  |   +-- startVoice / stopVoice (WebRTC or WS fallback)
+  |   +-- WS fallback: ScriptProcessorNode + resample + PCM playback
   |   +-- LiveState management (9 states)
   |   +-- Transcript state (messages array)
   |
@@ -393,4 +439,17 @@ SessionPage
 
 ---
 
-**Last updated:** 2026-03-04 (v0.5.1)
+## Cloud Run Deployment Note
+
+Cloud Run supports HTTP/1.1, HTTP/2, gRPC, and WebSocket — but **not raw UDP traffic**.
+WebRTC media transport requires UDP, so for Cloud Run deployments:
+
+- **Without TURN server**: WebRTC falls back to WebSocket binary audio automatically.
+  The browser still benefits from `getUserMedia` AEC/NS/AGC constraints.
+- **With TURN server** (on a GCE VM or managed service): Full WebRTC audio works.
+  Configure via `TURN_URL`, `TURN_USERNAME`, `TURN_CREDENTIAL` environment variables.
+- **Local development**: WebRTC works directly (host candidates on same machine/LAN).
+
+---
+
+**Last updated:** 2026-03-09 (v0.6.0 — WebRTC audio transport)
