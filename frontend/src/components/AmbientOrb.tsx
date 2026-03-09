@@ -23,7 +23,7 @@ export default function AmbientOrb({ state }: AmbientOrbProps) {
   const color = STATE_COLORS[state];
 
   return (
-    <div className="relative flex items-center justify-center w-full h-full min-h-[120px] sm:min-h-[140px]">
+    <div className="relative flex items-center justify-center w-full h-full min-h-[80px] sm:min-h-[90px]">
       <AnimatePresence mode="wait">
         <motion.div
           key={state}
