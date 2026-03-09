@@ -4,7 +4,7 @@ WORKDIR /app
 
 # System dependencies for aiortc (WebRTC) and PyAV (audio codec)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libopus0 libvpx7 libsrtp2-1 \
+    libopus0 libsrtp2-1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Install dependencies first (layer-cache friendly)
