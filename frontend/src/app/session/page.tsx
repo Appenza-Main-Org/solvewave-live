@@ -375,8 +375,8 @@ export default function SessionPage() {
         {/* Center: Interaction Space */}
         <section className="flex-1 flex flex-col min-w-0 relative">
           
-          {/* Ambient State Visualization - Reduced padding and fixed height to prevent overlap */}
-          <div className="flex-none h-48 sm:h-56 flex flex-col items-center justify-center relative z-20">
+          {/* Ambient State Visualization - Compact to maximize transcript space */}
+          <div className="flex-none h-28 sm:h-32 flex flex-col items-center justify-center relative z-20">
             <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-faheem-emerald/5 to-transparent opacity-20" />
             <AmbientOrb state={liveState} />
             <div className="text-center mt-2 px-8 relative z-10 h-12 flex flex-col items-center justify-center">
@@ -399,8 +399,8 @@ export default function SessionPage() {
             </div>
           </div>
 
-          {/* Transcript Canvas - Expanded area with better margins */}
-          <div className="flex-1 min-h-0 px-4 sm:px-6 lg:px-12 pb-6 relative z-10">
+          {/* Transcript Canvas - Maximized area */}
+          <div className="flex-1 min-h-0 px-4 sm:px-6 lg:px-12 pb-3 relative z-10">
             <div className="h-full rounded-[2.5rem] bg-obsidian-900/60 border border-white/[0.05] backdrop-blur-md overflow-hidden shadow-[0_30px_100px_rgba(0,0,0,0.5)] relative group/canvas">
                <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
                <TranscriptPanel
@@ -443,7 +443,7 @@ export default function SessionPage() {
       </main>
 
       {/* ── Floating Composer ────────────────────────────────────────────────────── */}
-      <footer className="flex-none p-6 sm:p-10 z-20">
+      <footer className="flex-none p-4 sm:p-6 z-20">
         <div className="max-w-4xl mx-auto relative">
           <div className="absolute inset-x-0 -top-20 h-40 bg-gradient-to-t from-background to-transparent pointer-events-none" />
           
