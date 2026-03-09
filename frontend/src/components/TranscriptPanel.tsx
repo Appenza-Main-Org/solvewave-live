@@ -127,7 +127,7 @@ export default function TranscriptPanel({
 
   if (entries.length === 0 && !isThinking) {
     return (
-      <div className="flex flex-col h-full items-center justify-center p-8 text-center bg-slate-900/20 backdrop-blur-sm rounded-3xl border border-white/5 m-4">
+      <div className="flex flex-col h-full items-center justify-center p-6 text-center bg-slate-900/20 backdrop-blur-sm rounded-2xl border border-white/5 m-2">
         <motion.div 
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -156,7 +156,7 @@ export default function TranscriptPanel({
   }
 
   return (
-    <div className="h-full overflow-y-auto overflow-x-hidden scroll-smooth custom-scrollbar px-6 sm:px-10 lg:px-16 py-10 space-y-14">
+    <div className="h-full overflow-y-auto overflow-x-hidden scroll-smooth custom-scrollbar px-4 sm:px-6 lg:px-10 py-6 space-y-10">
       <AnimatePresence initial={false}>
         {entries.map((e, i) => {
           const isRecap = e.role === "tutor" && e.text.trim().startsWith("✓");

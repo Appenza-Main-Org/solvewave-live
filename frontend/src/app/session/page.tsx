@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import AmbientOrb from "@/components/AmbientOrb";
-import { 
+import {
   Mic, 
   MicOff, 
   Camera, 
@@ -375,33 +374,45 @@ export default function SessionPage() {
         {/* Center: Interaction Space */}
         <section className="flex-1 flex flex-col min-w-0 relative">
           
-          {/* Ambient State Visualization - Compact to maximize transcript space */}
-          <div className="flex-none h-28 sm:h-32 flex flex-col items-center justify-center relative z-20">
+          {/* Ambient State Visualization - Minimal strip to maximize transcript space */}
+          <div className="flex-none h-12 flex items-center justify-center gap-3 relative z-20 px-4">
             <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-faheem-emerald/5 to-transparent opacity-20" />
-            <AmbientOrb state={liveState} />
-            <div className="text-center mt-2 px-8 relative z-10 h-12 flex flex-col items-center justify-center">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={liveState}
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -5 }}
-                  className="inline-flex flex-col items-center"
-                >
-                  <span className="text-[9px] uppercase tracking-[0.3em] font-black text-faheem-emerald/60 mb-0.5">
-                    {LIVE_STRIP_COPY[liveState].title}
-                  </span>
-                  <p className="text-xs text-obsidian-400 font-medium max-w-xs leading-tight">
-                    {LIVE_STRIP_COPY[liveState].body}
-                  </p>
-                </motion.div>
-              </AnimatePresence>
+            <div className="w-8 h-8 overflow-hidden rounded-full flex items-center justify-center shrink-0"
+                 style={{ backgroundColor: liveStateColor, boxShadow: `0 0 20px ${liveStateColor}33` }}>
+              <span className="text-sm filter drop-shadow-lg">
+                {liveState === "idle" && "•"}
+                {liveState === "connecting" && "⌛"}
+                {liveState === "connected" && "✨"}
+                {liveState === "thinking" && "🧠"}
+                {liveState === "seeing" && "📷"}
+                {liveState === "listening" && "👂"}
+                {liveState === "speaking" && "💬"}
+                {liveState === "interrupted" && "✋"}
+                {liveState === "error" && "⚠️"}
+              </span>
             </div>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={liveState}
+                initial={{ opacity: 0, x: -5 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 5 }}
+                className="flex items-center gap-2 relative z-10"
+              >
+                <span className="text-[9px] uppercase tracking-[0.3em] font-black text-faheem-emerald/60">
+                  {LIVE_STRIP_COPY[liveState].title}
+                </span>
+                <span className="text-[9px] text-obsidian-600">—</span>
+                <p className="text-xs text-obsidian-400 font-medium leading-tight">
+                  {LIVE_STRIP_COPY[liveState].body}
+                </p>
+              </motion.div>
+            </AnimatePresence>
           </div>
 
-          {/* Transcript Canvas - Maximized area */}
-          <div className="flex-1 min-h-0 px-4 sm:px-6 lg:px-12 pb-3 relative z-10">
-            <div className="h-full rounded-[2.5rem] bg-obsidian-900/60 border border-white/[0.05] backdrop-blur-md overflow-hidden shadow-[0_30px_100px_rgba(0,0,0,0.5)] relative group/canvas">
+          {/* Transcript Canvas - Full-width maximized area */}
+          <div className="flex-1 min-h-0 px-2 sm:px-3 lg:px-4 pb-2 relative z-10">
+            <div className="h-full rounded-3xl bg-obsidian-900/60 border border-white/[0.05] backdrop-blur-md overflow-hidden shadow-[0_30px_100px_rgba(0,0,0,0.5)] relative group/canvas">
                <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent pointer-events-none" />
                <TranscriptPanel
                 entries={transcript}
@@ -411,8 +422,8 @@ export default function SessionPage() {
           </div>
         </section>
 
-        {/* Right: Tools & Context (Desktop Only) - Reduced width to give center more space */}
-        <aside className="hidden xl:flex w-[320px] flex-none flex-col gap-8 p-8 border-l border-white/5 bg-obsidian-950/40 backdrop-blur-md">
+        {/* Right: Tools & Context (Desktop Only) - Narrow to maximize transcript */}
+        <aside className="hidden xl:flex w-[280px] flex-none flex-col gap-6 p-6 border-l border-white/5 bg-obsidian-950/40 backdrop-blur-md">
           <div className="space-y-10">
             <section>
               <h3 className="text-[10px] uppercase tracking-[0.3em] font-black text-obsidian-500 mb-6 flex items-center gap-3">
@@ -443,7 +454,7 @@ export default function SessionPage() {
       </main>
 
       {/* ── Floating Composer ────────────────────────────────────────────────────── */}
-      <footer className="flex-none p-4 sm:p-6 z-20">
+      <footer className="flex-none p-3 sm:p-4 z-20">
         <div className="max-w-4xl mx-auto relative">
           <div className="absolute inset-x-0 -top-20 h-40 bg-gradient-to-t from-background to-transparent pointer-events-none" />
           
