@@ -239,11 +239,26 @@ export function useVoiceTranscription(callbacks?: VoiceTranscriptionCallbacks) {
     };
   }, []);
 
+  // ── Manual language toggle ──────────────────────────────────────────────
+  const toggleLanguage = useCallback(() => {
+    const newLang = autoLangRef.current === "en-US" ? "ar-EG" : "en-US";
+    log.voice(`Manual language toggle: ${autoLangRef.current} → ${newLang}`);
+    autoLangRef.current = newLang;
+    setDetectedLang(newLang as "en-US" | "ar-EG");
+
+    // Restart recognition with new language if currently running
+    if (recognitionRef.current && wantRunningRef.current) {
+      try { recognitionRef.current.abort(); } catch {} // onend will auto-restart with new lang
+    }
+  }, []);
+
   return {
     isSupported,
     isRunning,
-    /** The currently auto-detected speech language ("en-US" or "ar-EG") */
+    /** The currently active speech language ("en-US" or "ar-EG") */
     detectedLang,
+    /** Manually toggle between English and Arabic */
+    toggleLanguage,
     startTranscription,
     stopTranscription,
   };
