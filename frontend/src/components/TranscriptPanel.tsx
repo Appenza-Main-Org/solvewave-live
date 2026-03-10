@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import katex from "katex";
 import { motion, AnimatePresence } from "framer-motion";
-import { Clock, User, Sparkles, ImageIcon, CheckCircle2, MoreHorizontal } from "lucide-react";
+import { Clock, User, Sparkles, ImageIcon, CheckCircle2, MoreHorizontal, Volume2 } from "lucide-react";
 
 export interface TranscriptEntry {
   role: "tutor" | "student";
@@ -16,6 +16,7 @@ export interface TranscriptEntry {
 interface TranscriptPanelProps {
   entries: TranscriptEntry[];
   isThinking?: boolean;
+  onSpeak?: (text: string) => void;
 }
 
 // ── Inline content processor (math + bold) ───────────────────────────────────
@@ -77,7 +78,7 @@ function renderTextLines(text: string) {
             {stepMatch[1]}
           </span>
           <span
-            className="flex-1 pt-1 text-[16px] sm:text-[18px] lg:text-[20px] font-semibold tracking-tight leading-relaxed"
+            className="flex-1 pt-1 text-[14px] sm:text-[15px] lg:text-[16px] font-semibold tracking-tight leading-relaxed"
             dangerouslySetInnerHTML={{
               __html: processInlineContent(stepMatch[2]),
             }}
@@ -93,7 +94,7 @@ function renderTextLines(text: string) {
         <div key={idx} className="flex gap-4 ml-3 py-1.5">
           <span className="w-2 h-2 rounded-full bg-faheem-emerald/60 mt-3 shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
           <span
-            className="flex-1 text-[16px] sm:text-[18px] lg:text-[20px] font-medium tracking-tight leading-relaxed"
+            className="flex-1 text-[14px] sm:text-[15px] lg:text-[16px] font-medium tracking-tight leading-relaxed"
             dangerouslySetInnerHTML={{
               __html: processInlineContent(bulletMatch[1]),
             }}
@@ -106,7 +107,7 @@ function renderTextLines(text: string) {
     return (
       <p
         key={idx}
-        className="leading-[1.8] text-[16px] sm:text-[18px] lg:text-[20px] font-medium tracking-tight"
+        className="leading-[1.8] text-[14px] sm:text-[15px] lg:text-[16px] font-medium tracking-tight"
         dangerouslySetInnerHTML={{ __html: processInlineContent(line) }}
       />
     );
@@ -118,6 +119,7 @@ function renderTextLines(text: string) {
 export default function TranscriptPanel({
   entries,
   isThinking = false,
+  onSpeak,
 }: TranscriptPanelProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -168,7 +170,7 @@ export default function TranscriptPanel({
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className={`flex w-full ${e.role === "student" ? "justify-end" : "justify-start"}`}
+              className={`flex w-full group/entry ${e.role === "student" ? "justify-end" : "justify-start"}`}
             >
               <div className={`flex gap-8 w-full ${e.role === "student" ? "max-w-[85%] flex-row-reverse" : "max-w-full flex-row"}`}>
                 
@@ -184,23 +186,32 @@ export default function TranscriptPanel({
                   
                   {/* Role Label */}
                   <div className="flex items-center gap-4 px-1">
-                    <span className="text-[11px] font-black uppercase tracking-[0.25em] text-obsidian-500">
+                    <span className="text-[10px] font-black uppercase tracking-[0.25em] text-obsidian-500">
                       {e.role === "tutor" ? "Faheem Math" : "Student"}
                     </span>
                     {isRecap && (
-                      <span className="text-[10px] font-black uppercase tracking-widest text-faheem-emerald bg-faheem-emerald/10 px-3 py-1 rounded border border-faheem-emerald/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-faheem-emerald bg-faheem-emerald/10 px-3 py-1 rounded border border-faheem-emerald/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
                         Deep Dive Recap
                       </span>
                     )}
-                    <span className="text-[11px] text-obsidian-600 font-mono opacity-50 tracking-tighter">{e.timestamp}</span>
+                    <span className="text-[10px] text-obsidian-600 font-mono opacity-50 tracking-tighter">{e.timestamp}</span>
+                    {e.role === "tutor" && onSpeak && !isPartial && (
+                      <button
+                        onClick={() => onSpeak(e.text)}
+                        className="p-1 rounded-lg hover:bg-white/10 text-obsidian-600 hover:text-faheem-emerald transition-all opacity-0 group-hover/entry:opacity-100"
+                        title="Read aloud"
+                      >
+                        <Volume2 size={13} />
+                      </button>
+                    )}
                   </div>
 
                   {/* Message Surface */}
                   <div className={`
                     relative text-obsidian-50 leading-[1.8] w-full
-                    ${e.role === "tutor" 
-                      ? "text-[16px] sm:text-[18px] lg:text-[20px] font-medium tracking-tight" 
-                      : "text-[15px] px-6 py-4 rounded-3xl bg-obsidian-900/80 border border-obsidian-800 shadow-xl"
+                    ${e.role === "tutor"
+                      ? "text-[14px] sm:text-[15px] lg:text-[16px] font-medium tracking-tight"
+                      : "text-[14px] px-6 py-4 rounded-3xl bg-obsidian-900/80 border border-obsidian-800 shadow-xl"
                     }
                   `}>
                     {e.imageUrl && (

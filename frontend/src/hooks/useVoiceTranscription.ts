@@ -29,6 +29,8 @@ export interface VoiceTranscriptionCallbacks {
   onFinal?: (text: string) => void;
   /** Fired on errors (e.g., no speech detected, network error) */
   onError?: (error: string) => void;
+  /** BCP-47 language code for speech recognition (default: "en-US") */
+  lang?: string;
 }
 
 export function useVoiceTranscription(callbacks?: VoiceTranscriptionCallbacks) {
@@ -46,6 +48,8 @@ export function useVoiceTranscription(callbacks?: VoiceTranscriptionCallbacks) {
   onFinalRef.current = callbacks?.onFinal;
   const onErrorRef = useRef(callbacks?.onError);
   onErrorRef.current = callbacks?.onError;
+  const langRef = useRef(callbacks?.lang ?? "en-US");
+  langRef.current = callbacks?.lang ?? "en-US";
 
   // ── Check browser support on mount ───────────────────────────────────────
 
@@ -86,7 +90,7 @@ export function useVoiceTranscription(callbacks?: VoiceTranscriptionCallbacks) {
     const recognition = new SpeechRecognition();
     recognition.continuous = true;         // Keep listening until stopped
     recognition.interimResults = true;     // Send partial results while speaking
-    recognition.lang = "en-US";            // Default to English (can be customized)
+    recognition.lang = langRef.current;    // Configurable language (en-US, ar-EG, etc.)
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => {
@@ -145,7 +149,7 @@ export function useVoiceTranscription(callbacks?: VoiceTranscriptionCallbacks) {
           const newRecognition = new SpeechRecognition();
           newRecognition.continuous = true;
           newRecognition.interimResults = true;
-          newRecognition.lang = "en-US";
+          newRecognition.lang = langRef.current;
           newRecognition.maxAlternatives = 1;
           newRecognition.onstart = recognition.onstart;
           newRecognition.onresult = recognition.onresult;

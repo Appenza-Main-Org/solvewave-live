@@ -3,15 +3,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Mic, 
-  MicOff, 
-  Camera, 
-  Send, 
-  ChevronRight, 
-  HelpCircle, 
+  Mic,
+  MicOff,
+  Camera,
+  Send,
+  ChevronRight,
+  HelpCircle,
   Timer,
   Zap,
-  LayoutDashboard
+  LayoutDashboard,
+  Globe,
 } from "lucide-react";
 import { useSessionSocket, LiveState } from "@/hooks/useSessionSocket";
 import { useVoiceTranscription } from "@/hooks/useVoiceTranscription";
@@ -53,9 +54,28 @@ export default function SessionPage() {
   const [mode, setMode]               = useState<TutorMode>("explain");
   const [text, setText]               = useState("");
   const [helpPanelOpen, setHelpPanelOpen] = useState(false);
+  const [speechLang, setSpeechLang]   = useState<"en-US" | "ar-EG">("en-US");
   const fileInputRef      = useRef<HTMLInputElement>(null);
   const autoVoiceRef      = useRef(false);   // set true when Start auto-triggers voice
   const partialTranscriptIndexRef = useRef<number | null>(null);
+
+  // ── TTS: Read tutor messages aloud ──────────────────────────────────────────
+  const speakText = useCallback((text: string) => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    speechSynthesis.cancel();
+    const clean = text
+      .replace(/\$\$[\s\S]+?\$\$/g, " math expression ")
+      .replace(/\$[^\$\n]+?\$/g, " math expression ")
+      .replace(/\*\*(.*?)\*\*/g, "$1")
+      .replace(/[✓⚠📷🎓]/g, "")
+      .replace(/\n/g, ". ")
+      .trim();
+    if (!clean) return;
+    const utt = new SpeechSynthesisUtterance(clean);
+    utt.rate = 1.05;
+    utt.lang = "en-US";
+    speechSynthesis.speak(utt);
+  }, []);
 
   const {
     status,
@@ -177,6 +197,7 @@ export default function SessionPage() {
     useVoiceTranscription({
       onPartial: onPartialTranscript,
       onFinal: onFinalTranscript,
+      lang: speechLang,
     });
 
   // ── Auto-start voice + transcription once session is live ─────────────────
@@ -249,10 +270,22 @@ export default function SessionPage() {
       }
     } else {
       log.voice("User started voice");
+      if ("speechSynthesis" in window) speechSynthesis.cancel();
       startVoice();
       if (transcriptionSupported) {
         startTranscription();
       }
+    }
+  }
+
+  function handleLangToggle() {
+    const next = speechLang === "en-US" ? "ar-EG" : "en-US";
+    log.voice(`Speech lang → ${next}`);
+    setSpeechLang(next);
+    // Restart transcription with new language if running
+    if (transcriptionRunning) {
+      stopTranscription();
+      setTimeout(() => startTranscription(), 150);
     }
   }
 
@@ -417,6 +450,7 @@ export default function SessionPage() {
                <TranscriptPanel
                 entries={transcript}
                 isThinking={isThinking && isActive}
+                onSpeak={speakText}
               />
             </div>
           </div>
@@ -467,20 +501,29 @@ export default function SessionPage() {
                 disabled={!isActive}
                 className="p-3 rounded-2xl bg-white/5 text-obsidian-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-20 shadow-sm"
               >
-                <Camera size={22} />
+                <Camera size={20} />
               </button>
-              
+
+              <button
+                onClick={handleLangToggle}
+                disabled={!isActive}
+                title={speechLang === "en-US" ? "Switch to Arabic" : "Switch to English"}
+                className="px-2 py-1.5 rounded-xl bg-white/5 text-obsidian-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-20 text-[10px] font-black uppercase tracking-wider min-w-[36px] text-center"
+              >
+                {speechLang === "en-US" ? "EN" : "AR"}
+              </button>
+
               <button
                 onClick={handleVoiceToggle}
                 disabled={!isActive}
                 className={`
                   p-3 rounded-2xl transition-all duration-500 disabled:opacity-20 shadow-lg
-                  ${voiceActive 
-                    ? "bg-faheem-rose text-white shadow-faheem-rose/20 ring-4 ring-faheem-rose/20" 
+                  ${voiceActive
+                    ? "bg-faheem-rose text-white shadow-faheem-rose/20 ring-4 ring-faheem-rose/20"
                     : "bg-white/5 text-obsidian-400 hover:text-white hover:bg-white/10"}
                 `}
               >
-                {voiceActive ? <MicOff size={22} /> : <Mic size={22} />}
+                {voiceActive ? <MicOff size={20} /> : <Mic size={20} />}
               </button>
             </div>
 
@@ -503,7 +546,7 @@ export default function SessionPage() {
               placeholder={
                 voiceActive ? "Listening for your question..." : isActive ? "Ask anything about math..." : "Connect to start your session"
               }
-              className="flex-1 bg-transparent border-none focus:ring-0 text-[15px] py-4 px-2 resize-none max-h-40 text-obsidian-50 placeholder-obsidian-600 font-medium leading-relaxed"
+              className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-4 px-2 resize-none max-h-40 text-obsidian-50 placeholder-obsidian-600 font-medium leading-relaxed"
             />
 
             {/* Send Button */}
@@ -512,7 +555,7 @@ export default function SessionPage() {
               disabled={!canSend}
               className="p-3.5 rounded-2xl bg-faheem-emerald text-white shadow-xl shadow-faheem-emerald/20 hover:brightness-110 transition-all disabled:opacity-10 disabled:grayscale active:scale-90 mb-1"
             >
-              <Send size={22} strokeWidth={2.5} />
+              <Send size={20} strokeWidth={2.5} />
             </button>
           </div>
         </div>
