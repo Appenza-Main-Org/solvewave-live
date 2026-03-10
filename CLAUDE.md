@@ -19,9 +19,9 @@ Single-subject math tutor with voice, text, and image input. English UI.
 │   │   ├── layout.tsx          # Root layout (Cairo font, metadata)
 │   │   ├── globals.css         # Tailwind + custom scrollbar
 │   │   ├── page.tsx            # Redirects to /session
-│   │   └── session/page.tsx    # Main session UI (orb, transcript, composer)
+│   │   └── session/page.tsx    # Main session UI (status strip, transcript, composer)
 │   ├── src/components/
-│   │   ├── AmbientOrb.tsx      # Animated state visualization orb
+│   │   ├── AmbientOrb.tsx      # Animated state visualization orb (standalone, not used in session page)
 │   │   ├── FaheemLogo.tsx      # SVG logo (radical sign on emerald gradient)
 │   │   ├── TranscriptPanel.tsx # Chat transcript (tutor/student, LaTeX)
 │   │   ├── ModeSelector.tsx    # Explain/Quiz/Homework segmented tabs
@@ -50,9 +50,11 @@ Single-subject math tutor with voice, text, and image input. English UI.
 
 ## UI Design
 - **Theme:** Obsidian dark (#02040a background) with faheem-emerald (#10B981) accents
-- **AmbientOrb:** Central animated orb reflects live state (idle/listening/speaking/thinking/etc.)
+- **Status Strip:** Compact h-12 inline strip with mini state orb + label (replaced full AmbientOrb)
+- **Transcript Canvas:** Maximized area — minimal padding (px-2/3/4), full height, edge-to-edge
 - **Floating Composer:** Rounded glass-morphism input bar with camera, mic, text, send
 - **Transcript:** Rounded canvas with tutor (emerald accent) / student bubbles, LaTeX rendering
+- **Sidebar:** 280px tools panel (xl+ only), narrow to maximize transcript space
 - **Responsive:** Mobile mode selector in second row, side panel hidden below xl breakpoint
 - **Font:** Cairo (loaded via next/font/google with CSS variable --font-cairo)
 
@@ -73,7 +75,7 @@ Single-subject math tutor with voice, text, and image input. English UI.
 - **GCP Project:** faheem-live-competition (872506223416)
 - **Frontend:** https://faheem-math-frontend-872506223416.us-central1.run.app
 - **Backend:** https://faheem-math-backend-872506223416.us-central1.run.app
-- **Current tag:** v0.5.0
+- **Current tag:** v0.6.0
 
 ### Deploy commands
 ```bash
