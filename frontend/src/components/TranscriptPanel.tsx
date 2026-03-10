@@ -5,6 +5,17 @@ import katex from "katex";
 import { motion, AnimatePresence } from "framer-motion";
 import { Clock, User, Sparkles, ImageIcon, CheckCircle2, MoreHorizontal, Volume2 } from "lucide-react";
 
+// ── RTL detection ─────────────────────────────────────────────────────────────
+const ARABIC_RE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+/** Returns true if text is primarily Arabic (> 30% Arabic chars among letters) */
+function isArabicText(text: string): boolean {
+  if (!ARABIC_RE.test(text)) return false;
+  const letters = text.replace(/[\s\d\p{P}\p{S}]/gu, "");
+  if (letters.length === 0) return false;
+  const arabicCount = (letters.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g) || []).length;
+  return arabicCount / letters.length > 0.3;
+}
+
 export interface TranscriptEntry {
   role: "tutor" | "student";
   text: string;
@@ -164,6 +175,8 @@ export default function TranscriptPanel({
           const isRecap = e.role === "tutor" && e.text.trim().startsWith("✓");
           const isPartial = e.partial === true;
 
+          const isRtl = isArabicText(e.text);
+
           return (
             <motion.div
               key={i}
@@ -173,7 +186,7 @@ export default function TranscriptPanel({
               className={`flex w-full group/entry ${e.role === "student" ? "justify-end" : "justify-start"}`}
             >
               <div className={`flex gap-8 w-full ${e.role === "student" ? "max-w-[85%] flex-row-reverse" : "max-w-full flex-row"}`}>
-                
+
                 {/* Avatar / Side Indicator */}
                 <div className="flex-none flex flex-col items-center">
                   <div className={`w-1 h-full rounded-full transition-colors duration-500 ${
@@ -183,7 +196,7 @@ export default function TranscriptPanel({
 
                 {/* Content Area */}
                 <div className={`flex flex-col gap-4 flex-1 ${e.role === "student" ? "items-end" : "items-start"}`}>
-                  
+
                   {/* Role Label */}
                   <div className="flex items-center gap-4 px-1">
                     <span className="text-[10px] font-black uppercase tracking-[0.25em] text-obsidian-500">
@@ -207,8 +220,11 @@ export default function TranscriptPanel({
                   </div>
 
                   {/* Message Surface */}
-                  <div className={`
+                  <div
+                    dir={isRtl ? "rtl" : undefined}
+                    className={`
                     relative text-obsidian-50 leading-[1.8] w-full
+                    ${isRtl ? "text-right" : ""}
                     ${e.role === "tutor"
                       ? "text-[14px] sm:text-[15px] lg:text-[16px] font-medium tracking-tight"
                       : "text-[14px] px-6 py-4 rounded-3xl bg-obsidian-900/80 border border-obsidian-800 shadow-xl"
@@ -223,7 +239,7 @@ export default function TranscriptPanel({
                         />
                       </div>
                     )}
-                    
+
                     <div className="space-y-4">
                       {renderTextLines(e.text)}
                     </div>

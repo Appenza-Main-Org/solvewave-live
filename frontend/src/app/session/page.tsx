@@ -391,7 +391,7 @@ export default function SessionPage() {
         </div>
 
         {/* Center: Interaction Space */}
-        <section className="flex-1 flex flex-col min-w-0 relative">
+        <section className="flex-1 flex flex-col min-w-0 min-h-0 relative">
           
           {/* Ambient State Visualization - Minimal strip to maximize transcript space */}
           <div className="flex-none h-12 flex items-center justify-center gap-3 relative z-20 px-4">
@@ -473,11 +473,9 @@ export default function SessionPage() {
         </aside>
       </main>
 
-      {/* ── Floating Composer ────────────────────────────────────────────────────── */}
-      <footer className="flex-none p-3 sm:p-4 z-20">
-        <div className="max-w-4xl mx-auto relative">
-          <div className="absolute inset-x-0 -top-20 h-40 bg-gradient-to-t from-background to-transparent pointer-events-none" />
-          
+      {/* ── Floating Composer — docked to bottom ───────────────────────────────── */}
+      <footer className="flex-none z-20 pb-[env(safe-area-inset-bottom,0px)] bg-background/80 backdrop-blur-xl border-t border-white/[0.03]">
+        <div className="max-w-4xl mx-auto relative px-3 sm:px-4 py-2 sm:py-3">
           <div className="relative flex items-end gap-3 p-3 rounded-[2.5rem] bg-obsidian-900/60 border border-white/5 backdrop-blur-3xl shadow-[0_30px_60px_rgba(0,0,0,0.5)] focus-within:border-sw-emerald/30 transition-all duration-500">
             
             {/* Action Buttons */}
