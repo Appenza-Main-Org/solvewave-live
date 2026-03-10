@@ -32,7 +32,7 @@ export default function ModeSelector({ selected, onChange }: ModeSelectorProps) 
             {isSelected && (
               <motion.div
                 layoutId="active-mode"
-                className="absolute inset-0 bg-faheem-emerald shadow-[0_0_20px_rgba(16,185,129,0.3)] rounded-xl"
+                className="absolute inset-0 bg-sw-emerald shadow-[0_0_20px_rgba(16,185,129,0.3)] rounded-xl"
                 transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
               />
             )}

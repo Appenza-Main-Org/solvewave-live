@@ -129,7 +129,7 @@ class LiveClient:
                     and response.server_content.interrupted
                 ):
                     logger.info(
-                        "[FaheemLive][backend][voice] barge-in / interruption [%s]",
+                        "[SolveWave][backend][voice] barge-in / interruption [%s]",
                         config.session_id,
                     )
                     audio_chunks_sent = 0
@@ -139,14 +139,14 @@ class LiveClient:
                             await send_control({"type": "status", "value": "interrupted"})
                         except Exception as exc:
                             logger.warning(
-                                "[FaheemLive][backend][voice] send_control failed: %s", exc
+                                "[SolveWave][backend][voice] send_control failed: %s", exc
                             )
                     continue
 
                 # ── Tool call ──────────────────────────────────────────────────
                 if response.tool_call:
                     logger.info(
-                        "[FaheemLive][backend][voice] tool call [%s]", config.session_id
+                        "[SolveWave][backend][voice] tool call [%s]", config.session_id
                     )
                     results = await self._agent.dispatch_tool_calls(
                         response.tool_call
@@ -185,7 +185,7 @@ class LiveClient:
                     and response.server_content.turn_complete
                 ):
                     logger.info(
-                        "[FaheemLive][backend][voice] turn complete | audio_chunks=%d text_parts=%d [%s]",
+                        "[SolveWave][backend][voice] turn complete | audio_chunks=%d text_parts=%d [%s]",
                         audio_chunks_sent, len(turn_text_parts), config.session_id,
                     )
                     # Notify frontend that tutor audio has ended
@@ -206,12 +206,12 @@ class LiveClient:
                                     "text": full_text,
                                 })
                                 logger.info(
-                                    "[FaheemLive][backend][voice] sent voice transcript | len=%d [%s]",
+                                    "[SolveWave][backend][voice] sent voice transcript | len=%d [%s]",
                                     len(full_text), config.session_id,
                                 )
                             except Exception as exc:
                                 logger.warning(
-                                    "[FaheemLive][backend][voice] transcript send failed: %s", exc
+                                    "[SolveWave][backend][voice] transcript send failed: %s", exc
                                 )
                     audio_chunks_sent = 0
                     turn_text_parts = []
@@ -230,14 +230,14 @@ class LiveClient:
         history: list[dict],
     ) -> str:
         """
-        Generate a single Faheem text reply using the standard Gemini text API.
+        Generate a single SolveWave text reply using the standard Gemini text API.
 
         Intentionally separate from the Live audio path so text-only round trips
         don't require opening a full Live session.
 
         Args:
             user_text:     The student's latest message.
-            system_prompt: Faheem's system prompt (from TutorAgent.system_prompt).
+            system_prompt: SolveWave's system prompt (from TutorAgent.system_prompt).
             history:       Prior turns as [{"role": "user"|"model", "text": "..."}].
                            Grows across the session for multi-turn context.
 
@@ -274,7 +274,7 @@ class LiveClient:
         )
 
         logger.info(
-            "[FaheemLive][backend][text] Gemini request | model=%s history_turns=%d",
+            "[SolveWave][backend][text] Gemini request | model=%s history_turns=%d",
             settings.gemini_text_model, len(history),
         )
         try:
@@ -287,11 +287,11 @@ class LiveClient:
             )
             text = response.text or ""
             logger.info(
-                "[FaheemLive][backend][text] Gemini OK | reply_len=%d", len(text)
+                "[SolveWave][backend][text] Gemini OK | reply_len=%d", len(text)
             )
             return text
         except Exception as exc:
-            logger.error("[FaheemLive][backend][text] Gemini FAILED | %s", exc)
+            logger.error("[SolveWave][backend][text] Gemini FAILED | %s", exc)
             return "Sorry, I ran into a problem. Please try again."
 
     # ── Image reply (multimodal, standard generate API) ───────────────────────
@@ -305,13 +305,13 @@ class LiveClient:
         history: list[dict],
     ) -> str:
         """
-        Generate a Faheem reply for an uploaded image using the Gemini multimodal API.
+        Generate a SolveWave reply for an uploaded image using the Gemini multimodal API.
 
         Args:
             image_b64:     Base64-encoded image data (no data-URL prefix).
             mime_type:     MIME type (e.g. "image/png", "image/jpeg").
             caption:       Optional student caption / question about the image.
-            system_prompt: Faheem's system prompt.
+            system_prompt: SolveWave's system prompt.
             history:       Prior text turns for conversational context.
 
         Returns:
@@ -350,17 +350,17 @@ class LiveClient:
 
         # Decode base64 → raw bytes
         logger.info(
-            "[FaheemLive][backend][image] decoding base64 | b64_len=%d mime=%s",
+            "[SolveWave][backend][image] decoding base64 | b64_len=%d mime=%s",
             len(image_b64), mime_type,
         )
         try:
             image_bytes = base64.b64decode(image_b64)
             logger.info(
-                "[FaheemLive][backend][image] decode OK | bytes=%d", len(image_bytes)
+                "[SolveWave][backend][image] decode OK | bytes=%d", len(image_bytes)
             )
         except Exception as exc:
             logger.error(
-                "[FaheemLive][backend][image] base64 decode FAILED | %s", exc
+                "[SolveWave][backend][image] base64 decode FAILED | %s", exc
             )
             return "Sorry, I couldn't read that image. Please try again."
 
@@ -380,7 +380,7 @@ class LiveClient:
         contents.append(types.Content(role="user", parts=user_parts))
 
         logger.info(
-            "[FaheemLive][backend][image] calling Gemini multimodal API | model=%s history_turns=%d",
+            "[SolveWave][backend][image] calling Gemini multimodal API | model=%s history_turns=%d",
             settings.gemini_text_model, len(history),
         )
         try:
@@ -393,13 +393,13 @@ class LiveClient:
             )
             text = response.text or ""
             logger.info(
-                "[FaheemLive][backend][image] Gemini OK | reply_len=%d reply_preview=%r",
+                "[SolveWave][backend][image] Gemini OK | reply_len=%d reply_preview=%r",
                 len(text), text[:80],
             )
             return text
         except Exception as exc:
             logger.error(
-                "[FaheemLive][backend][image] Gemini FAILED | %s\n%s",
+                "[SolveWave][backend][image] Gemini FAILED | %s\n%s",
                 exc, __import__("traceback").format_exc(),
             )
             return "Sorry, I had trouble analysing that image. Please try again."

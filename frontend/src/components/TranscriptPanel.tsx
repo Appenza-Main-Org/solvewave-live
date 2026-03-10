@@ -74,7 +74,7 @@ function renderTextLines(text: string) {
     if (stepMatch) {
       return (
         <div key={idx} className="flex gap-4 group/step py-2">
-          <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-faheem-emerald/20 text-faheem-emerald text-[12px] font-black border border-faheem-emerald/30 shrink-0 mt-0.5 group-hover/step:bg-faheem-emerald group-hover/step:text-white transition-all duration-300 shadow-lg shadow-faheem-emerald/10">
+          <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-sw-emerald/20 text-sw-emerald text-[12px] font-black border border-sw-emerald/30 shrink-0 mt-0.5 group-hover/step:bg-sw-emerald group-hover/step:text-white transition-all duration-300 shadow-lg shadow-sw-emerald/10">
             {stepMatch[1]}
           </span>
           <span
@@ -92,7 +92,7 @@ function renderTextLines(text: string) {
     if (bulletMatch) {
       return (
         <div key={idx} className="flex gap-4 ml-3 py-1.5">
-          <span className="w-2 h-2 rounded-full bg-faheem-emerald/60 mt-3 shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
+          <span className="w-2 h-2 rounded-full bg-sw-emerald/60 mt-3 shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
           <span
             className="flex-1 text-[14px] sm:text-[15px] lg:text-[16px] font-medium tracking-tight leading-relaxed"
             dangerouslySetInnerHTML={{
@@ -137,9 +137,9 @@ export default function TranscriptPanel({
         >
           🎓
         </motion.div>
-        <h2 className="text-xl font-bold text-white mb-2">Your Math Tutor is Ready</h2>
+        <h2 className="text-xl font-bold text-white mb-2">Your Live Math Tutor is Ready</h2>
         <p className="text-slate-400 max-w-sm mb-8">
-          Start a session to solve equations, explain concepts, or check your homework in real-time.
+          Speak, type, or snap a problem — get step-by-step solutions in real-time.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-md">
           {[
@@ -177,7 +177,7 @@ export default function TranscriptPanel({
                 {/* Avatar / Side Indicator */}
                 <div className="flex-none flex flex-col items-center">
                   <div className={`w-1 h-full rounded-full transition-colors duration-500 ${
-                    e.role === "tutor" ? "bg-faheem-emerald/40 shadow-[0_0_15px_rgba(16,185,129,0.3)]" : "bg-obsidian-700"
+                    e.role === "tutor" ? "bg-sw-emerald/40 shadow-[0_0_15px_rgba(16,185,129,0.3)]" : "bg-obsidian-700"
                   }`} />
                 </div>
 
@@ -187,10 +187,10 @@ export default function TranscriptPanel({
                   {/* Role Label */}
                   <div className="flex items-center gap-4 px-1">
                     <span className="text-[10px] font-black uppercase tracking-[0.25em] text-obsidian-500">
-                      {e.role === "tutor" ? "Faheem Math" : "Student"}
+                      {e.role === "tutor" ? "SolveWave" : "Student"}
                     </span>
                     {isRecap && (
-                      <span className="text-[9px] font-black uppercase tracking-widest text-faheem-emerald bg-faheem-emerald/10 px-3 py-1 rounded border border-faheem-emerald/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-sw-emerald bg-sw-emerald/10 px-3 py-1 rounded border border-sw-emerald/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
                         Deep Dive Recap
                       </span>
                     )}
@@ -198,7 +198,7 @@ export default function TranscriptPanel({
                     {e.role === "tutor" && onSpeak && !isPartial && (
                       <button
                         onClick={() => onSpeak(e.text)}
-                        className="p-1 rounded-lg hover:bg-white/10 text-obsidian-600 hover:text-faheem-emerald transition-all opacity-0 group-hover/entry:opacity-100"
+                        className="p-1 rounded-lg hover:bg-white/10 text-obsidian-600 hover:text-sw-emerald transition-all opacity-0 group-hover/entry:opacity-100"
                         title="Read aloud"
                       >
                         <Volume2 size={13} />
@@ -232,7 +232,7 @@ export default function TranscriptPanel({
                       <motion.div 
                         animate={{ opacity: [0.4, 0.8, 0.4] }}
                         transition={{ duration: 1.5, repeat: Infinity }}
-                        className="mt-4 text-[11px] text-faheem-sky font-medium uppercase tracking-widest"
+                        className="mt-4 text-[11px] text-sw-sky font-medium uppercase tracking-widest"
                       >
                         AI Processing...
                       </motion.div>

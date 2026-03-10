@@ -1,5 +1,5 @@
 """
-TutorAgent — orchestrates the Faheem math tutoring persona.
+TutorAgent — orchestrates the SolveWave math tutoring persona.
 
 Responsibilities:
 - Loads the system prompt from prompts/system_prompt.md
@@ -131,7 +131,7 @@ _TOOL_SCHEMAS: list[dict] = [
                 "corrections": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Corrections or correct answers Faheem provided.",
+                    "description": "Corrections or correct answers the tutor provided.",
                 },
             },
             "required": ["session_id"],
@@ -196,14 +196,14 @@ class TutorAgent:
         for fn_call in tool_call.function_calls:
             name = fn_call.name
             args = dict(fn_call.args)
-            logger.info("[FaheemLive][backend][tool] call: %s(%s)", name, args)
+            logger.info("[SolveWave][backend][tool] call: %s(%s)", name, args)
 
             if name in _TOOL_REGISTRY:
                 result = _TOOL_REGISTRY[name](**args)
-                logger.info("[FaheemLive][backend][tool] result: %s → %s", name, result)
+                logger.info("[SolveWave][backend][tool] result: %s → %s", name, result)
             else:
                 result = {"error": f"Unknown tool: {name}"}
-                logger.warning("[FaheemLive][backend][tool] unknown tool: %s", name)
+                logger.warning("[SolveWave][backend][tool] unknown tool: %s", name)
 
             self._events.append({"tool": name, "args": args, "result": result})
             results.append({"name": name, "result": result})

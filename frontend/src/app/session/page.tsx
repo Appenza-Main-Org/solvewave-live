@@ -116,7 +116,7 @@ export default function SessionPage() {
   const onPartialTranscript = useCallback((text: string) => {
     if (!text.trim()) return;
 
-    // Ignore echo: Web Speech API picks up Faheem's speaker output
+    // Ignore echo: Web Speech API picks up tutor speaker output
     if (isSpeakingRef.current) return;
 
     setTranscript((prev) => {
@@ -149,7 +149,7 @@ export default function SessionPage() {
   const onFinalTranscript = useCallback((text: string) => {
     if (!text.trim()) return;
 
-    // Ignore echo: Web Speech API picks up Faheem's speaker output
+    // Ignore echo: Web Speech API picks up tutor speaker output
     if (isSpeakingRef.current) return;
 
     const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -319,12 +319,12 @@ export default function SessionPage() {
       {/* ── Modern Header ────────────────────────────────────────────────────────── */}
       <header className="flex-none h-16 border-b border-white/5 bg-obsidian-950/40 backdrop-blur-2xl z-20 px-4 sm:px-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="p-2 rounded-2xl bg-faheem-emerald/10 border border-faheem-emerald/20 shadow-[0_0_15px_rgba(16,185,129,0.1)] transition-transform hover:scale-105">
+          <div className="p-2 rounded-2xl bg-sw-emerald/10 border border-sw-emerald/20 shadow-[0_0_15px_rgba(16,185,129,0.1)] transition-transform hover:scale-105">
             <FaheemLogo size={28} />
           </div>
           <div className="hidden sm:block">
             <h1 className="text-sm font-bold tracking-[0.1em] uppercase text-obsidian-100">
-              Faheem <span className="text-faheem-emerald">Math</span>
+              Solve<span className="text-sw-emerald">Wave</span>
             </h1>
             <div className="flex items-center gap-2 mt-0.5">
               <motion.div 
@@ -345,7 +345,7 @@ export default function SessionPage() {
         <div className="flex items-center gap-3">
           {isActive && (
             <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-obsidian-900 border border-obsidian-800">
-              <Timer size={14} className="text-faheem-emerald" />
+              <Timer size={14} className="text-sw-emerald" />
               <span className="text-xs font-mono font-bold text-obsidian-200">{timerDisplay}</span>
             </div>
           )}
@@ -370,12 +370,12 @@ export default function SessionPage() {
             className={`
               px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95
               ${isActive 
-                ? "bg-faheem-rose/10 text-faheem-rose border border-faheem-rose/20 hover:bg-faheem-rose/20" 
-                : "bg-faheem-emerald text-white shadow-2xl shadow-faheem-emerald/20 hover:brightness-110"}
+                ? "bg-sw-rose/10 text-sw-rose border border-sw-rose/20 hover:bg-sw-rose/20" 
+                : "bg-sw-emerald text-white shadow-2xl shadow-sw-emerald/20 hover:brightness-110"}
               disabled:opacity-50
             `}
           >
-            {status === "connecting" ? "..." : isActive ? "End Session" : "Start Tutoring"}
+            {status === "connecting" ? "..." : isActive ? "End Session" : "Start Session"}
           </button>
         </div>
       </header>
@@ -395,7 +395,7 @@ export default function SessionPage() {
           
           {/* Ambient State Visualization - Minimal strip to maximize transcript space */}
           <div className="flex-none h-12 flex items-center justify-center gap-3 relative z-20 px-4">
-            <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-faheem-emerald/5 to-transparent opacity-20" />
+            <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-sw-emerald/5 to-transparent opacity-20" />
             <div className="w-8 h-8 overflow-hidden rounded-full flex items-center justify-center shrink-0"
                  style={{ backgroundColor: liveStateColor, boxShadow: `0 0 20px ${liveStateColor}33` }}>
               <span className="text-sm filter drop-shadow-lg">
@@ -418,7 +418,7 @@ export default function SessionPage() {
                 exit={{ opacity: 0, x: 5 }}
                 className="flex items-center gap-2 relative z-10"
               >
-                <span className="text-[9px] uppercase tracking-[0.3em] font-black text-faheem-emerald/60">
+                <span className="text-[9px] uppercase tracking-[0.3em] font-black text-sw-emerald/60">
                   {LIVE_STRIP_COPY[liveState].title}
                 </span>
                 <span className="text-[9px] text-obsidian-600">—</span>
@@ -447,7 +447,7 @@ export default function SessionPage() {
           <div className="space-y-10">
             <section>
               <h3 className="text-[10px] uppercase tracking-[0.3em] font-black text-obsidian-500 mb-6 flex items-center gap-3">
-                <LayoutDashboard size={12} className="text-faheem-emerald" />
+                <LayoutDashboard size={12} className="text-sw-emerald" />
                 Study Curriculum
               </h3>
               <ExamplesPanel
@@ -457,16 +457,16 @@ export default function SessionPage() {
               />
             </section>
             
-            <section className="p-6 rounded-[2rem] bg-faheem-emerald/5 border border-faheem-emerald/10 relative overflow-hidden group">
+            <section className="p-6 rounded-[2rem] bg-sw-emerald/5 border border-sw-emerald/10 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <Zap size={40} className="text-faheem-emerald" />
+                <Zap size={40} className="text-sw-emerald" />
               </div>
-              <div className="flex items-center gap-3 text-faheem-emerald mb-3">
+              <div className="flex items-center gap-3 text-sw-emerald mb-3">
                 <Zap size={16} fill="currentColor" />
                 <span className="text-[10px] font-black uppercase tracking-[0.2em]">Quick Tip</span>
               </div>
               <p className="text-[12px] text-obsidian-400 leading-relaxed font-medium">
-                Faheem is naturally interruptible. Just start speaking whenever you have a question or need clarification on a step.
+                SolveWave is naturally interruptible. Just start speaking whenever you have a question or need clarification on a step.
               </p>
             </section>
           </div>
@@ -478,7 +478,7 @@ export default function SessionPage() {
         <div className="max-w-4xl mx-auto relative">
           <div className="absolute inset-x-0 -top-20 h-40 bg-gradient-to-t from-background to-transparent pointer-events-none" />
           
-          <div className="relative flex items-end gap-3 p-3 rounded-[2.5rem] bg-obsidian-900/60 border border-white/5 backdrop-blur-3xl shadow-[0_30px_60px_rgba(0,0,0,0.5)] focus-within:border-faheem-emerald/30 transition-all duration-500">
+          <div className="relative flex items-end gap-3 p-3 rounded-[2.5rem] bg-obsidian-900/60 border border-white/5 backdrop-blur-3xl shadow-[0_30px_60px_rgba(0,0,0,0.5)] focus-within:border-sw-emerald/30 transition-all duration-500">
             
             {/* Action Buttons */}
             <div className="flex items-center gap-2 pb-1 px-1">
@@ -506,7 +506,7 @@ export default function SessionPage() {
                 className={`
                   p-3 rounded-2xl transition-all duration-500 disabled:opacity-20 shadow-lg
                   ${voiceActive
-                    ? "bg-faheem-rose text-white shadow-faheem-rose/20 ring-4 ring-faheem-rose/20"
+                    ? "bg-sw-rose text-white shadow-sw-rose/20 ring-4 ring-sw-rose/20"
                     : "bg-white/5 text-obsidian-400 hover:text-white hover:bg-white/10"}
                 `}
               >
@@ -531,7 +531,7 @@ export default function SessionPage() {
               disabled={!isActive}
               rows={1}
               placeholder={
-                voiceActive ? "Listening for your question..." : isActive ? "Ask anything about math..." : "Connect to start your session"
+                voiceActive ? "Listening..." : isActive ? "Ask anything about math..." : "Start a session to begin"
               }
               className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-4 px-2 resize-none max-h-40 text-obsidian-50 placeholder-obsidian-600 font-medium leading-relaxed"
             />
@@ -540,7 +540,7 @@ export default function SessionPage() {
             <button
               onClick={handleSend}
               disabled={!canSend}
-              className="p-3.5 rounded-2xl bg-faheem-emerald text-white shadow-xl shadow-faheem-emerald/20 hover:brightness-110 transition-all disabled:opacity-10 disabled:grayscale active:scale-90 mb-1"
+              className="p-3.5 rounded-2xl bg-sw-emerald text-white shadow-xl shadow-sw-emerald/20 hover:brightness-110 transition-all disabled:opacity-10 disabled:grayscale active:scale-90 mb-1"
             >
               <Send size={20} strokeWidth={2.5} />
             </button>

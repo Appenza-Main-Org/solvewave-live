@@ -16,7 +16,7 @@ def run(
         session_id:  Unique session identifier.
         topics:      Math topics or problem types covered.
         mistakes:    Incorrect student answers recorded.
-        corrections: Corrections provided by Faheem.
+        corrections: Corrections provided by the tutor.
 
     Returns:
         dict with keys: session_id, topics_covered, mistakes, corrections,

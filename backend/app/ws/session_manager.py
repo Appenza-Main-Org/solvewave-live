@@ -1,5 +1,5 @@
 """
-session_manager — WebSocket session lifecycle for Faheem Live.
+session_manager — WebSocket session lifecycle for SolveWave.
 
 Responsibilities:
 - Accept and authenticate the WebSocket connection
@@ -44,7 +44,7 @@ from app.ws.webrtc_handler import WebRTCHandler
 
 logger = logging.getLogger(__name__)
 
-_LOG = "[FaheemLive][backend]"
+_LOG = "[SolveWave][backend]"
 
 # Mode-specific addenda appended to the system prompt per request.
 # Keeps the base system_prompt.md clean and allows runtime mode switching.

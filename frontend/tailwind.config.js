@@ -23,7 +23,8 @@ module.exports = {
           900: "#0b1221", // Darker glass surface
           950: "#02040a", // Deeper obsidian
         },
-        faheem: {
+        sw: {
+          cyan: "#06b6d4",
           emerald: "#10B981",
           sky: "#38BDF8",
           rose: "#F43F5E",

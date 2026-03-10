@@ -23,7 +23,7 @@ from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-_LOG = "[FaheemLive][webrtc]"
+_LOG = "[SolveWave][webrtc]"
 
 # Audio rate constants
 WEBRTC_RATE = 48000       # WebRTC / Opus standard

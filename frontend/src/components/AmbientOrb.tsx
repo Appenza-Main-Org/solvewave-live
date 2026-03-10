@@ -45,7 +45,7 @@ export default function AmbientOrb({ state }: AmbientOrbProps) {
                 {[1, 2, 3].map((i) => (
                   <motion.div
                     key={i}
-                    className="absolute w-full h-full rounded-full border border-faheem-rose/30"
+                    className="absolute w-full h-full rounded-full border border-sw-rose/30"
                     animate={{
                       scale: [1, 1.8],
                       opacity: [0.5, 0],

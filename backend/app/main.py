@@ -11,7 +11,7 @@ settings = get_settings()
 logging.basicConfig(level=settings.log_level.upper())
 
 app = FastAPI(
-    title="Faheem Live API",
+    title="SolveWave API",
     description="Real-time math tutoring backend powered by Gemini Live",
     version="0.1.0",
 )
@@ -27,7 +27,7 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
-    return {"service": "Faheem Live API", "status": "running", "version": "0.1.0"}
+    return {"service": "SolveWave API", "status": "running", "version": "0.1.0"}
 
 
 @app.get("/health")

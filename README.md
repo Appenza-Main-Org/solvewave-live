@@ -1,6 +1,6 @@
-# Faheem Math — Live AI Math Tutor
+# SolveWave — Live AI Math Tutor
 
-Real-time, voice-first, vision-enabled math tutor powered by the [Gemini Live API](https://ai.google.dev/api/multimodal-live).
+**See it. Say it. Solve it.** Real-time, voice-first, vision-enabled math tutor powered by the [Gemini Live API](https://ai.google.dev/api/multimodal-live).
 
 **Built for the Google Gemini Live Agent Challenge — Live Agents 🗣️ Track**
 
@@ -26,11 +26,11 @@ Real-time, voice-first, vision-enabled math tutor powered by the [Gemini Live AP
 
 ## What it Does
 
-Faheem Math is a **live, multimodal AI math tutor** that students can interrupt, just like a real tutor. It combines:
+SolveWave is a **live, multimodal AI math tutor** that students can interrupt, just like a real tutor. It combines:
 
-- ✅ **Voice sessions** — speak a math problem; Faheem explains it in real time (full-duplex audio via Gemini Live)
-- ✅ **Barge-in support** — interrupt mid-explanation; Faheem stops and listens to your follow-up question
-- ✅ **Image upload** — snap or upload homework; Faheem reads and solves it step by step (vision-enabled)
+- ✅ **Voice sessions** — speak a math problem; get real-time step-by-step explanations (full-duplex audio via Gemini Live)
+- ✅ **Barge-in support** — interrupt mid-explanation; the tutor stops and listens to your follow-up question
+- ✅ **Image upload** — snap or upload homework; instant recognition and step-by-step solve (vision-enabled)
 - ✅ **Text chat** — multi-turn conversation with persistent session context
 - ✅ **Three modes** — Explain / Quiz / Homework, switchable mid-session without losing context
 - ✅ **Live agent states** — Ready → Connecting → Live → Listening → Thinking → Speaking → Interrupted (visible in UI)
@@ -79,12 +79,12 @@ This project satisfies all requirements for the **Live Agents 🗣️** track:
 
 ### Live Deployed App (No Setup Required)
 
-🚀 **[Launch Faheem Math](https://faheem-math-frontend-872506223416.us-central1.run.app)**
+🚀 **[Launch SolveWave](https://faheem-math-frontend-872506223416.us-central1.run.app)**
 
-1. Click "Start session"
+1. Click "Start Session"
 2. Allow microphone access
 3. Speak or type a math problem
-4. Faheem responds in real-time with voice + transcript
+4. SolveWave responds in real-time with voice + transcript
 
 **Backend API:** https://faheem-math-backend-872506223416.us-central1.run.app
 
@@ -329,7 +329,7 @@ faheem-live-gemini/
 │   └── app/
 │       ├── main.py                  ← FastAPI app, CORS, /health, /ws/session
 │       ├── config.py                ← Pydantic Settings
-│       ├── agents/tutor_agent.py    ← Faheem persona, tool schemas, recap
+│       ├── agents/tutor_agent.py    ← SolveWave persona, tool schemas, recap
 │       ├── models/schemas.py        ← Shared Pydantic models
 │       ├── prompts/system_prompt.md ← Math tutor system prompt
 │       ├── services/live_client.py  ← Gemini Live + text + image bridge

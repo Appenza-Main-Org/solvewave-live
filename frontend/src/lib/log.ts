@@ -1,9 +1,9 @@
 /**
- * Structured console logging for Faheem Live.
- * All logs are prefixed with [FaheemLive][<module>] for easy grep in DevTools.
+ * Structured console logging for SolveWave.
+ * All logs are prefixed with [SolveWave][<module>] for easy grep in DevTools.
  */
 
-const P = "[FaheemLive]";
+const P = "[SolveWave]";
 
 export const log = {
   session: (msg: string, ...args: unknown[]) =>

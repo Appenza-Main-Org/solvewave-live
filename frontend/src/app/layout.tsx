@@ -9,8 +9,8 @@ const cairo = Cairo({
 });
 
 export const metadata: Metadata = {
-  title: "Faheem Math AI Tutor — Live Math Tutoring",
-  description: "Real-time math tutoring powered by Gemini Live",
+  title: "SolveWave — Live AI Math Tutor",
+  description: "See it. Say it. Solve it. Real-time math tutoring powered by Gemini Live.",
 };
 
 export default function RootLayout({

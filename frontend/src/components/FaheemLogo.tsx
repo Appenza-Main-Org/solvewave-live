@@ -1,9 +1,9 @@
 /**
- * Faheem Math Logo - A creative, smart icon that represents 
- * both mathematics and the "Live AI" nature of the app.
- * 
- * Design: A stylized 'F' formed by a radical (square root) symbol, 
- * integrated with a pulse/waveform representing the "Live" voice aspect.
+ * SolveWave Logo — A premium icon representing live math tutoring.
+ *
+ * Design: A stylized wave pulse forming an 'S' shape with a subtle
+ * math radical cue, on a deep dark rounded square. Cyan/emerald gradient
+ * accent for the wave stroke. Conveys: math + live voice + intelligence.
  */
 export default function FaheemLogo({ size = 32 }: { size?: number }) {
   return (
@@ -13,65 +13,81 @@ export default function FaheemLogo({ size = 32 }: { size?: number }) {
       viewBox="0 0 40 40"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      aria-label="Faheem Math"
+      aria-label="SolveWave"
       role="img"
     >
       <defs>
         <linearGradient
-          id="logo-gradient"
+          id="sw-bg"
           x1="0"
           y1="0"
           x2="40"
           y2="40"
           gradientUnits="userSpaceOnUse"
         >
-          <stop stopColor="#10b981" />
-          <stop offset="1" stopColor="#059669" />
+          <stop stopColor="#0a0f1a" />
+          <stop offset="1" stopColor="#0d1527" />
         </linearGradient>
-        
-        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="2" result="blur" />
+
+        <linearGradient
+          id="sw-wave"
+          x1="6"
+          y1="20"
+          x2="34"
+          y2="20"
+          gradientUnits="userSpaceOnUse"
+        >
+          <stop stopColor="#06b6d4" />
+          <stop offset="0.5" stopColor="#10B981" />
+          <stop offset="1" stopColor="#06b6d4" />
+        </linearGradient>
+
+        <filter id="sw-glow" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="2.5" result="blur" />
           <feComposite in="SourceGraphic" in2="blur" operator="over" />
         </filter>
       </defs>
 
-      {/* Background Squircle */}
-      <rect 
-        width="40" 
-        height="40" 
-        rx="12" 
-        fill="url(#logo-gradient)" 
-        className="drop-shadow-lg"
+      {/* Background — deep dark rounded square */}
+      <rect
+        width="40"
+        height="40"
+        rx="11"
+        fill="url(#sw-bg)"
+        stroke="#10B981"
+        strokeWidth="0.5"
+        strokeOpacity="0.3"
       />
 
-      {/* Smart Path: Radical sign that flows into an 'F' and a waveform */}
+      {/* Wave pulse forming S-curve — the SolveWave mark */}
       <path
-        d="M10 22L14 22L18 30L26 12H32M22 20H28"
-        stroke="white"
-        strokeWidth="3.5"
+        d="M8 24C12 24 13 14 20 14C27 14 28 26 32 26"
+        stroke="url(#sw-wave)"
+        strokeWidth="3"
+        strokeLinecap="round"
+        fill="none"
+        filter="url(#sw-glow)"
+      />
+
+      {/* Subtle radical / sqrt cue at left */}
+      <path
+        d="M8 17L10 17L12.5 24"
+        stroke="#06b6d4"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-        filter="url(#glow)"
+        opacity="0.5"
       />
 
-      {/* Live AI Pulse Dots */}
-      <circle cx="32" cy="12" r="2.5" fill="white" className="animate-pulse">
+      {/* Live pulse dot */}
+      <circle cx="33" cy="26" r="2" fill="#10B981">
         <animate
           attributeName="opacity"
-          values="1;0.4;1"
+          values="1;0.3;1"
           dur="2s"
           repeatCount="indefinite"
         />
       </circle>
-      
-      {/* Decorative 'Spark' of intelligence */}
-      <path
-        d="M30 28L32 30M34 26L32 30M32 32L32 30M28 30H32"
-        stroke="white"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        opacity="0.6"
-      />
     </svg>
   );
 }

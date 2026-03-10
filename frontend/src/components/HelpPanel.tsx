@@ -92,7 +92,7 @@ export default function HelpPanel({
           {/* How to Use */}
           <section>
             <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 mb-3">
-              How to Use Faheem Math
+              How to Use SolveWave
             </h3>
             <ol className="space-y-3 text-sm text-slate-300 leading-relaxed">
               <li className="flex gap-3">
@@ -124,7 +124,7 @@ export default function HelpPanel({
                   4
                 </span>
                 <span>
-                  Faheem responds in real-time with voice + transcript
+                  SolveWave responds in real-time with voice + transcript
                 </span>
               </li>
               <li className="flex gap-3">
@@ -150,11 +150,11 @@ export default function HelpPanel({
               </li>
               <li className="flex gap-2">
                 <span className="text-emerald-400">✓</span>
-                <span><strong className="text-slate-300">Barge-in:</strong> Interrupt anytime — Faheem stops and listens</span>
+                <span><strong className="text-slate-300">Barge-in:</strong> Interrupt anytime — tutor stops and listens</span>
               </li>
               <li className="flex gap-2">
                 <span className="text-emerald-400">✓</span>
-                <span><strong className="text-slate-300">Vision:</strong> Upload homework photos — Faheem reads & solves</span>
+                <span><strong className="text-slate-300">Vision:</strong> Upload homework photos — instant recognition & solve</span>
               </li>
               <li className="flex gap-2">
                 <span className="text-emerald-400">✓</span>
@@ -219,7 +219,7 @@ export default function HelpPanel({
               About This Project
             </h3>
             <p className="text-sm text-slate-400 leading-relaxed mb-3">
-              <strong className="text-slate-200">Faheem Math</strong> is a live AI math tutor built for the <strong className="text-emerald-400">Google Gemini Live Agent Challenge</strong> (Live Agents track).
+              <strong className="text-slate-200">SolveWave</strong> is a live AI math tutor built for the <strong className="text-emerald-400">Google Gemini Live Agent Challenge</strong> (Live Agents track).
             </p>
             <div className="flex flex-wrap gap-2">
               <a

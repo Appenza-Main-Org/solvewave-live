@@ -55,7 +55,7 @@ export default function ExamplesPanel({
   return (
     <div className="space-y-6">
       <div className="p-5 rounded-2xl bg-obsidian-900/40 border border-white/5 backdrop-blur-md">
-        <div className="flex items-center gap-3 text-faheem-emerald mb-3">
+        <div className="flex items-center gap-3 text-sw-emerald mb-3">
           <Icon size={18} className="opacity-80" />
           <span className="text-[10px] font-black uppercase tracking-[0.25em]">
             {mode} Mode
@@ -87,7 +87,7 @@ export default function ExamplesPanel({
             type="button"
           >
             <span className="flex-1 pr-4 tracking-tight">{example}</span>
-            <ChevronRight size={14} className={`transition-all duration-300 group-hover:translate-x-1 ${disabled ? "opacity-0" : "opacity-20 group-hover:opacity-100 text-faheem-emerald"}`} />
+            <ChevronRight size={14} className={`transition-all duration-300 group-hover:translate-x-1 ${disabled ? "opacity-0" : "opacity-20 group-hover:opacity-100 text-sw-emerald"}`} />
           </motion.button>
         ))}
       </div>

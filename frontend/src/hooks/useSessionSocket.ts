@@ -244,7 +244,7 @@ export function useSessionSocket() {
           log.state("connecting → connected");
           append({
             role: "tutor",
-            text: "Hi! I'm Faheem, your math tutor — what problem are we solving today?",
+            text: "Hi! I'm your live math tutor — what problem are we solving today?",
             timestamp: timestamp(),
           });
 
