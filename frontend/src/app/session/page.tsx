@@ -191,7 +191,7 @@ export default function SessionPage() {
     }
   }, [setTranscript]);
 
-  const { isSupported: transcriptionSupported, isRunning: transcriptionRunning, detectedLang, toggleLanguage, startTranscription, stopTranscription } =
+  const { isSupported: transcriptionSupported, isRunning: transcriptionRunning, detectedLang, startTranscription, stopTranscription } =
     useVoiceTranscription({
       onPartial: onPartialTranscript,
       onFinal: onFinalTranscript,
@@ -488,19 +488,18 @@ export default function SessionPage() {
                 <Camera size={20} />
               </button>
 
-              {/* Language toggle — tap to switch between English / Arabic */}
-              {isActive && (
-                <button
-                  onClick={toggleLanguage}
-                  title={detectedLang === "ar-EG" ? "Arabic — tap to switch to English" : "English — tap to switch to Arabic"}
-                  className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider min-w-[32px] text-center transition-all active:scale-90 ${
+              {/* Auto-detected language indicator */}
+              {voiceActive && (
+                <span
+                  title={detectedLang === "ar-EG" ? "Arabic detected" : "English detected"}
+                  className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider min-w-[28px] text-center select-none transition-all duration-500 ${
                     detectedLang === "ar-EG"
-                      ? "bg-sw-emerald/20 text-sw-emerald border border-sw-emerald/30 shadow-[0_0_8px_rgba(16,185,129,0.2)]"
-                      : "bg-white/5 text-obsidian-400 hover:bg-white/10 hover:text-obsidian-200 border border-white/5"
+                      ? "bg-sw-emerald/20 text-sw-emerald border border-sw-emerald/30"
+                      : "bg-white/5 text-obsidian-500 border border-white/5"
                   }`}
                 >
                   {detectedLang === "ar-EG" ? "عر" : "EN"}
-                </button>
+                </span>
               )}
 
               <button

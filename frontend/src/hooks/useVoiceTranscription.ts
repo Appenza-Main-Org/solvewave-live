@@ -3,69 +3,37 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { log } from "@/lib/log";
 
-// Web Speech API types (not included in default TS lib)
-type SpeechRecognitionType = typeof window extends { SpeechRecognition: infer T }
-  ? T
-  : any;
-
 /**
- * useVoiceTranscription — Web Speech API hook for live voice transcription
+ * useVoiceTranscription — Web Speech API hook with automatic language detection
  *
- * Provides real-time captions of what the student says:
- * - Partial transcripts update while speaking
- * - Final transcripts lock in after each utterance
- * - Auto-detects Arabic vs English speech and switches language dynamically
- *
- * Browser support:
- * - Chrome/Edge: full support
- * - Safari: experimental (may require prefix)
- * - Firefox: limited/no support
+ * Detects whether the user speaks Arabic or English:
+ * 1. Browser locale check → if device is Arabic, default to Arabic
+ * 2. Language probe at start → tries both languages, picks the one that
+ *    produces native-script output (Arabic Unicode for AR, Latin for EN)
+ * 3. Ongoing monitoring → switches when output script changes
  */
 
-// ── Language auto-detection ─────────────────────────────────────────────────
+// ── Language helpers ──────────────────────────────────────────────────────────
 
-const ARABIC_UNICODE_RE = /[\u0600-\u06FF]/;
-const TRANSLITERATED_ARABIC_RE =
-  /\b(hamsa|khamsa|arba|arbaa|thalatha|talata|etneen|itnen|wahed|wahid|sitta|setta|sabaa|tamanya|tmania|tisaa|ashara|darb|zayed|naqes|naqis|yesawi|yisawi|eshrahli|ishrahli|moaadla|kasr|hel)\b/i;
+const ARABIC_UNICODE_RE = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
 
-/**
- * Given a transcript and the current recognition language, return the
- * language we should switch to — or null if no switch is needed.
- */
-function detectLangSwitch(text: string, currentLang: string): string | null {
-  const hasArabic = ARABIC_UNICODE_RE.test(text);
-
-  // Arabic characters detected while in English mode → switch to Arabic
-  if (hasArabic && currentLang === "en-US") return "ar-EG";
-
-  // Known transliterated Arabic math words while in English mode → switch to Arabic
-  if (!hasArabic && currentLang === "en-US" && TRANSLITERATED_ARABIC_RE.test(text)) {
-    return "ar-EG";
-  }
-
-  // In Arabic mode but output is clearly Latin (no Arabic chars) → switch to English
-  if (currentLang === "ar-EG" && !hasArabic && /[a-zA-Z]/.test(text)) {
-    return "en-US";
-  }
-
-  return null;
+/** Check if browser locale prefers Arabic */
+function browserPrefersArabic(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const langs = navigator.languages ?? [navigator.language];
+  return langs.some((l) => l.startsWith("ar"));
 }
 
-// ── Confidence-based language detection ──────────────────────────────────────
-
-/** Threshold below which we suspect the speech doesn't match the current language */
-const LOW_CONFIDENCE_THRESHOLD = 0.45;
-/** Number of consecutive low-confidence results before auto-switching */
-const LOW_CONFIDENCE_STREAK_TRIGGER = 1;
+/** Detect initial language from browser locale */
+function getDefaultLang(): "en-US" | "ar-EG" {
+  return browserPrefersArabic() ? "ar-EG" : "en-US";
+}
 
 // ── Hook ────────────────────────────────────────────────────────────────────
 
 export interface VoiceTranscriptionCallbacks {
-  /** Fired continuously while user is speaking (partial transcripts) */
   onPartial?: (text: string) => void;
-  /** Fired when an utterance is complete (final transcript) */
   onFinal?: (text: string) => void;
-  /** Fired on errors (e.g., no speech detected, network error) */
   onError?: (error: string) => void;
 }
 
@@ -74,13 +42,13 @@ export function useVoiceTranscription(callbacks?: VoiceTranscriptionCallbacks) {
   const [isRunning, setIsRunning] = useState(false);
   const [detectedLang, setDetectedLang] = useState<"en-US" | "ar-EG">("en-US");
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
-  const wantRunningRef = useRef(false); // true while user wants transcription active
-  const autoLangRef = useRef<string>("en-US"); // internally managed language
-  const lowConfidenceStreakRef = useRef(0); // tracks consecutive low-confidence results
+  const wantRunningRef = useRef(false);
+  const langRef = useRef<string>("en-US");
+  const probePhaseRef = useRef<"none" | "probing-alt" | "done">("none");
+  const probeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Use refs for callbacks so the recognition instance always calls the latest version
+  // Callback refs (always latest)
   const onPartialRef = useRef(callbacks?.onPartial);
   onPartialRef.current = callbacks?.onPartial;
   const onFinalRef = useRef(callbacks?.onFinal);
@@ -88,148 +56,159 @@ export function useVoiceTranscription(callbacks?: VoiceTranscriptionCallbacks) {
   const onErrorRef = useRef(callbacks?.onError);
   onErrorRef.current = callbacks?.onError;
 
-  // ── Check browser support on mount ───────────────────────────────────────
+  // ── Browser support check ─────────────────────────────────────────────────
 
   useEffect(() => {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-
-    if (SpeechRecognition) {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SR) {
       setIsSupported(true);
-      log.voice("Web Speech API supported");
+      // Set default from browser locale
+      const defaultLang = getDefaultLang();
+      langRef.current = defaultLang;
+      setDetectedLang(defaultLang);
+      log.voice(`Web Speech API supported — default lang: ${defaultLang}`);
     } else {
       setIsSupported(false);
-      log.voice("Web Speech API not supported in this browser");
+      log.voice("Web Speech API not supported");
     }
   }, []);
 
-  // ── Start transcription ──────────────────────────────────────────────────
+  // ── Internal: create and wire a recognition instance ──────────────────────
 
-  const startTranscription = useCallback(() => {
-    if (!isSupported) {
-      log.voice("Cannot start transcription: Web Speech API not supported");
-      onErrorRef.current?.("Web Speech API is not supported in this browser.");
-      return;
-    }
+  const createRecognition = useCallback(() => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return null;
 
-    if (recognitionRef.current) {
-      log.voice("Transcription already running — ignoring startTranscription");
-      return;
-    }
+    const rec = new SR();
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = langRef.current;
+    rec.maxAlternatives = 1;
 
-    wantRunningRef.current = true;
-
-    const SpeechRecognition =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = true;         // Keep listening until stopped
-    recognition.interimResults = true;     // Send partial results while speaking
-    recognition.lang = autoLangRef.current; // Auto-managed language
-    recognition.maxAlternatives = 1;
-
-    recognition.onstart = () => {
-      log.voice(`Transcription started [lang=${autoLangRef.current}]`);
+    rec.onstart = () => {
+      log.voice(`Recognition started [lang=${langRef.current}, probe=${probePhaseRef.current}]`);
       setIsRunning(true);
     };
 
-    recognition.onresult = (event: any) => {
-      // event.results is a SpeechRecognitionResultList
-      // Each result can be interim (partial) or final
+    rec.onresult = (event: any) => {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         const transcript = result[0].transcript.trim();
-        const confidence = result[0].confidence; // 0–1 (how well speech matches current language)
 
         if (result.isFinal) {
-          log.voice(`Final transcript [conf=${confidence.toFixed(2)}]: "${transcript}"`);
+          const hasArabic = ARABIC_UNICODE_RE.test(transcript);
+          log.voice(`Final [${langRef.current}]: "${transcript}" (arabic=${hasArabic})`);
 
-          // ── Confidence-based auto-switch ─────────────────────────────
-          // Low confidence means speech likely doesn't match current language.
-          // After LOW_CONFIDENCE_STREAK_TRIGGER consecutive low results, switch.
-          if (confidence > 0 && confidence < LOW_CONFIDENCE_THRESHOLD) {
-            lowConfidenceStreakRef.current++;
-            log.voice(`Low confidence streak: ${lowConfidenceStreakRef.current}/${LOW_CONFIDENCE_STREAK_TRIGGER}`);
-
-            if (lowConfidenceStreakRef.current >= LOW_CONFIDENCE_STREAK_TRIGGER) {
-              const switchTo = autoLangRef.current === "en-US" ? "ar-EG" : "en-US";
-              log.voice(`Auto-switching language (low confidence): ${autoLangRef.current} → ${switchTo}`);
-              autoLangRef.current = switchTo;
-              setDetectedLang(switchTo as "en-US" | "ar-EG");
-              lowConfidenceStreakRef.current = 0;
-              // Don't emit this low-confidence transcript — restart with correct language
-              if (recognitionRef.current) {
-                try { recognitionRef.current.abort(); } catch {}
-              }
-              continue; // skip emitting this garbled transcript
+          // ── During language probe ────────────────────────────────────
+          if (probePhaseRef.current === "probing-alt") {
+            // We're in the alternate-language probe
+            if (hasArabic && langRef.current === "ar-EG") {
+              // Arabic probe got Arabic output → Arabic is correct! Keep it.
+              log.voice("Probe confirmed: Arabic detected");
+              probePhaseRef.current = "done";
+              if (probeTimerRef.current) clearTimeout(probeTimerRef.current);
+              onFinalRef.current?.(transcript);
+            } else if (!hasArabic && langRef.current === "en-US") {
+              // English probe got English output → English is correct! Keep it.
+              log.voice("Probe confirmed: English detected");
+              probePhaseRef.current = "done";
+              if (probeTimerRef.current) clearTimeout(probeTimerRef.current);
+              onFinalRef.current?.(transcript);
+            } else {
+              // Probe didn't match either — keep going, probe timer will handle fallback
+              onFinalRef.current?.(transcript);
             }
-          } else {
-            // Good confidence — reset streak
-            lowConfidenceStreakRef.current = 0;
+            continue;
           }
 
-          onFinalRef.current?.(transcript);
-
-          // ── Unicode-based auto-detect (supplementary) ─────────────────
-          const newLang = detectLangSwitch(transcript, autoLangRef.current);
-          if (newLang) {
-            log.voice(`Language auto-switch (unicode): ${autoLangRef.current} → ${newLang}`);
-            autoLangRef.current = newLang;
-            setDetectedLang(newLang as "en-US" | "ar-EG");
+          // ── Normal operation (probe done or none) ────────────────────
+          // If in Arabic mode and got Arabic output → correct, emit
+          // If in English mode and got Latin output → correct, emit
+          // If output script doesn't match mode → switch
+          if (langRef.current === "en-US" && hasArabic) {
+            // Rare: en-US somehow produced Arabic chars → switch to Arabic
+            log.voice(`Script mismatch: switching en-US → ar-EG`);
+            langRef.current = "ar-EG";
+            setDetectedLang("ar-EG");
+            onFinalRef.current?.(transcript);
             if (recognitionRef.current) {
               try { recognitionRef.current.abort(); } catch {}
             }
+            continue;
           }
+
+          if (langRef.current === "ar-EG" && !hasArabic && /[a-zA-Z]{2,}/.test(transcript)) {
+            // Arabic mode but output is clearly English → switch to English
+            log.voice(`Script mismatch: switching ar-EG → en-US`);
+            langRef.current = "en-US";
+            setDetectedLang("en-US");
+            onFinalRef.current?.(transcript);
+            if (recognitionRef.current) {
+              try { recognitionRef.current.abort(); } catch {}
+            }
+            continue;
+          }
+
+          // ── First result: trigger language probe if not done ─────────
+          if (probePhaseRef.current === "none") {
+            onFinalRef.current?.(transcript);
+            // Start probing: try the OTHER language to see if it works better
+            const altLang = langRef.current === "en-US" ? "ar-EG" : "en-US";
+            log.voice(`Starting language probe: trying ${altLang}`);
+            probePhaseRef.current = "probing-alt";
+            langRef.current = altLang;
+            setDetectedLang(altLang as "en-US" | "ar-EG");
+
+            // Set a timeout: if probe doesn't produce a result in 3s, revert
+            probeTimerRef.current = setTimeout(() => {
+              if (probePhaseRef.current === "probing-alt") {
+                // Probe didn't get a result — revert to original language
+                const revertTo = altLang === "ar-EG" ? "en-US" : "ar-EG";
+                log.voice(`Probe timeout — reverting to ${revertTo}`);
+                probePhaseRef.current = "done";
+                langRef.current = revertTo;
+                setDetectedLang(revertTo as "en-US" | "ar-EG");
+                if (recognitionRef.current) {
+                  try { recognitionRef.current.abort(); } catch {}
+                }
+              }
+            }, 3000);
+
+            // Abort to restart with the alt language
+            if (recognitionRef.current) {
+              try { recognitionRef.current.abort(); } catch {}
+            }
+            continue;
+          }
+
+          // Normal emit
+          onFinalRef.current?.(transcript);
         } else {
+          // Partial results — always emit
           onPartialRef.current?.(transcript);
         }
       }
     };
 
-    recognition.onerror = (event: any) => {
+    rec.onerror = (event: any) => {
+      if (event.error === "no-speech" || event.error === "aborted") return;
       log.error("Speech recognition error", event.error);
-
-      // Common errors:
-      // - "no-speech": user didn't speak (can be ignored)
-      // - "network": network error
-      // - "not-allowed": microphone permission denied
-      // - "aborted": recognition aborted (we trigger this on lang switch)
-
-      if (event.error === "no-speech" || event.error === "aborted") {
-        // Ignore — no-speech is normal silence, aborted is our lang-switch trigger
-        return;
-      }
-
       onErrorRef.current?.(event.error);
-
-      // If error is fatal, stop wanting to run
       if (["not-allowed", "service-not-allowed"].includes(event.error)) {
         wantRunningRef.current = false;
       }
     };
 
-    recognition.onend = () => {
-      log.voice("Transcription ended");
+    rec.onend = () => {
       recognitionRef.current = null;
-
-      // Chrome often stops recognition after a final result even with continuous=true.
-      // Auto-restart if user still wants transcription running.
       if (wantRunningRef.current) {
-        log.voice(`Auto-restarting transcription [lang=${autoLangRef.current}]`);
+        log.voice(`Auto-restarting [lang=${langRef.current}]`);
         try {
-          const newRecognition = new SpeechRecognition();
-          newRecognition.continuous = true;
-          newRecognition.interimResults = true;
-          newRecognition.lang = autoLangRef.current;
-          newRecognition.maxAlternatives = 1;
-          newRecognition.onstart = recognition.onstart;
-          newRecognition.onresult = recognition.onresult;
-          newRecognition.onerror = recognition.onerror;
-          newRecognition.onend = recognition.onend;
-          recognitionRef.current = newRecognition;
-          newRecognition.start();
+          const next = createRecognition();
+          if (next) {
+            recognitionRef.current = next;
+            next.start();
+          }
         } catch (err) {
           log.error("Auto-restart failed", err);
           setIsRunning(false);
@@ -239,31 +218,48 @@ export function useVoiceTranscription(callbacks?: VoiceTranscriptionCallbacks) {
       }
     };
 
-    recognitionRef.current = recognition;
-    recognition.start();
-  }, [isSupported]);
+    return rec;
+  }, []);
 
-  // ── Stop transcription ───────────────────────────────────────────────────
+  // ── Start ─────────────────────────────────────────────────────────────────
 
-  const stopTranscription = useCallback(() => {
-    wantRunningRef.current = false; // prevent auto-restart in onend
-
-    if (!recognitionRef.current) {
-      log.voice("No active transcription to stop");
+  const startTranscription = useCallback(() => {
+    if (!isSupported) {
+      onErrorRef.current?.("Web Speech API not supported.");
       return;
     }
+    if (recognitionRef.current) return;
 
-    log.voice("Stopping transcription");
+    wantRunningRef.current = true;
+    probePhaseRef.current = "none"; // reset probe for each session
+
+    const rec = createRecognition();
+    if (rec) {
+      recognitionRef.current = rec;
+      rec.start();
+    }
+  }, [isSupported, createRecognition]);
+
+  // ── Stop ──────────────────────────────────────────────────────────────────
+
+  const stopTranscription = useCallback(() => {
+    wantRunningRef.current = false;
+    if (probeTimerRef.current) {
+      clearTimeout(probeTimerRef.current);
+      probeTimerRef.current = null;
+    }
+    if (!recognitionRef.current) return;
     recognitionRef.current.stop();
     recognitionRef.current = null;
     setIsRunning(false);
   }, []);
 
-  // ── Cleanup on unmount ───────────────────────────────────────────────────
+  // ── Cleanup ───────────────────────────────────────────────────────────────
 
   useEffect(() => {
     return () => {
       wantRunningRef.current = false;
+      if (probeTimerRef.current) clearTimeout(probeTimerRef.current);
       if (recognitionRef.current) {
         recognitionRef.current.stop();
         recognitionRef.current = null;
@@ -271,26 +267,11 @@ export function useVoiceTranscription(callbacks?: VoiceTranscriptionCallbacks) {
     };
   }, []);
 
-  // ── Manual language toggle ──────────────────────────────────────────────
-  const toggleLanguage = useCallback(() => {
-    const newLang = autoLangRef.current === "en-US" ? "ar-EG" : "en-US";
-    log.voice(`Manual language toggle: ${autoLangRef.current} → ${newLang}`);
-    autoLangRef.current = newLang;
-    setDetectedLang(newLang as "en-US" | "ar-EG");
-
-    // Restart recognition with new language if currently running
-    if (recognitionRef.current && wantRunningRef.current) {
-      try { recognitionRef.current.abort(); } catch {} // onend will auto-restart with new lang
-    }
-  }, []);
-
   return {
     isSupported,
     isRunning,
-    /** The currently active speech language ("en-US" or "ar-EG") */
+    /** The currently detected speech language */
     detectedLang,
-    /** Manually toggle between English and Arabic */
-    toggleLanguage,
     startTranscription,
     stopTranscription,
   };
