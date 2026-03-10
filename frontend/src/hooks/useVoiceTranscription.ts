@@ -51,6 +51,13 @@ function detectLangSwitch(text: string, currentLang: string): string | null {
   return null;
 }
 
+// ── Confidence-based language detection ──────────────────────────────────────
+
+/** Threshold below which we suspect the speech doesn't match the current language */
+const LOW_CONFIDENCE_THRESHOLD = 0.45;
+/** Number of consecutive low-confidence results before auto-switching */
+const LOW_CONFIDENCE_STREAK_TRIGGER = 1;
+
 // ── Hook ────────────────────────────────────────────────────────────────────
 
 export interface VoiceTranscriptionCallbacks {
@@ -71,6 +78,7 @@ export function useVoiceTranscription(callbacks?: VoiceTranscriptionCallbacks) {
   const recognitionRef = useRef<any>(null);
   const wantRunningRef = useRef(false); // true while user wants transcription active
   const autoLangRef = useRef<string>("en-US"); // internally managed language
+  const lowConfidenceStreakRef = useRef(0); // tracks consecutive low-confidence results
 
   // Use refs for callbacks so the recognition instance always calls the latest version
   const onPartialRef = useRef(callbacks?.onPartial);
@@ -133,24 +141,48 @@ export function useVoiceTranscription(callbacks?: VoiceTranscriptionCallbacks) {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         const transcript = result[0].transcript.trim();
+        const confidence = result[0].confidence; // 0–1 (how well speech matches current language)
 
         if (result.isFinal) {
-          log.voice(`Final transcript: "${transcript}"`);
+          log.voice(`Final transcript [conf=${confidence.toFixed(2)}]: "${transcript}"`);
+
+          // ── Confidence-based auto-switch ─────────────────────────────
+          // Low confidence means speech likely doesn't match current language.
+          // After LOW_CONFIDENCE_STREAK_TRIGGER consecutive low results, switch.
+          if (confidence > 0 && confidence < LOW_CONFIDENCE_THRESHOLD) {
+            lowConfidenceStreakRef.current++;
+            log.voice(`Low confidence streak: ${lowConfidenceStreakRef.current}/${LOW_CONFIDENCE_STREAK_TRIGGER}`);
+
+            if (lowConfidenceStreakRef.current >= LOW_CONFIDENCE_STREAK_TRIGGER) {
+              const switchTo = autoLangRef.current === "en-US" ? "ar-EG" : "en-US";
+              log.voice(`Auto-switching language (low confidence): ${autoLangRef.current} → ${switchTo}`);
+              autoLangRef.current = switchTo;
+              setDetectedLang(switchTo as "en-US" | "ar-EG");
+              lowConfidenceStreakRef.current = 0;
+              // Don't emit this low-confidence transcript — restart with correct language
+              if (recognitionRef.current) {
+                try { recognitionRef.current.abort(); } catch {}
+              }
+              continue; // skip emitting this garbled transcript
+            }
+          } else {
+            // Good confidence — reset streak
+            lowConfidenceStreakRef.current = 0;
+          }
+
           onFinalRef.current?.(transcript);
 
-          // ── Auto-detect language and switch if needed ────────────────
+          // ── Unicode-based auto-detect (supplementary) ─────────────────
           const newLang = detectLangSwitch(transcript, autoLangRef.current);
           if (newLang) {
-            log.voice(`Language auto-switch: ${autoLangRef.current} → ${newLang}`);
+            log.voice(`Language auto-switch (unicode): ${autoLangRef.current} → ${newLang}`);
             autoLangRef.current = newLang;
             setDetectedLang(newLang as "en-US" | "ar-EG");
-            // Abort current recognition — onend will auto-restart with new lang
             if (recognitionRef.current) {
               try { recognitionRef.current.abort(); } catch {}
             }
           }
         } else {
-          log.voice(`Partial transcript: "${transcript}"`);
           onPartialRef.current?.(transcript);
         }
       }
