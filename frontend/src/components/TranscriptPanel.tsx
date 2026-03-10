@@ -158,7 +158,7 @@ export default function TranscriptPanel({
   }
 
   return (
-    <div className="h-full overflow-y-auto overflow-x-hidden scroll-smooth custom-scrollbar px-4 sm:px-6 lg:px-10 py-6 space-y-10">
+    <div className="h-full overflow-y-auto overflow-x-hidden scroll-smooth custom-scrollbar px-4 sm:px-6 lg:px-10 pt-10 pb-6 space-y-10">
       <AnimatePresence initial={false}>
         {entries.map((e, i) => {
           const isRecap = e.role === "tutor" && e.text.trim().startsWith("✓");
