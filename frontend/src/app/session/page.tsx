@@ -12,7 +12,6 @@ import {
   Timer,
   Zap,
   LayoutDashboard,
-  Globe,
 } from "lucide-react";
 import { useSessionSocket, LiveState } from "@/hooks/useSessionSocket";
 import { useVoiceTranscription } from "@/hooks/useVoiceTranscription";
@@ -54,7 +53,6 @@ export default function SessionPage() {
   const [mode, setMode]               = useState<TutorMode>("explain");
   const [text, setText]               = useState("");
   const [helpPanelOpen, setHelpPanelOpen] = useState(false);
-  const [speechLang, setSpeechLang]   = useState<"en-US" | "ar-EG">("en-US");
   const fileInputRef      = useRef<HTMLInputElement>(null);
   const autoVoiceRef      = useRef(false);   // set true when Start auto-triggers voice
   const partialTranscriptIndexRef = useRef<number | null>(null);
@@ -193,11 +191,10 @@ export default function SessionPage() {
     }
   }, [setTranscript]);
 
-  const { isSupported: transcriptionSupported, isRunning: transcriptionRunning, startTranscription, stopTranscription } =
+  const { isSupported: transcriptionSupported, isRunning: transcriptionRunning, detectedLang, startTranscription, stopTranscription } =
     useVoiceTranscription({
       onPartial: onPartialTranscript,
       onFinal: onFinalTranscript,
-      lang: speechLang,
     });
 
   // ── Auto-start voice + transcription once session is live ─────────────────
@@ -275,17 +272,6 @@ export default function SessionPage() {
       if (transcriptionSupported) {
         startTranscription();
       }
-    }
-  }
-
-  function handleLangToggle() {
-    const next = speechLang === "en-US" ? "ar-EG" : "en-US";
-    log.voice(`Speech lang → ${next}`);
-    setSpeechLang(next);
-    // Restart transcription with new language if running
-    if (transcriptionRunning) {
-      stopTranscription();
-      setTimeout(() => startTranscription(), 150);
     }
   }
 
@@ -504,14 +490,15 @@ export default function SessionPage() {
                 <Camera size={20} />
               </button>
 
-              <button
-                onClick={handleLangToggle}
-                disabled={!isActive}
-                title={speechLang === "en-US" ? "Switch to Arabic" : "Switch to English"}
-                className="px-2 py-1.5 rounded-xl bg-white/5 text-obsidian-400 hover:text-white hover:bg-white/10 transition-all disabled:opacity-20 text-[10px] font-black uppercase tracking-wider min-w-[36px] text-center"
-              >
-                {speechLang === "en-US" ? "EN" : "AR"}
-              </button>
+              {/* Auto-detected language indicator (passive) */}
+              {voiceActive && (
+                <span
+                  title={detectedLang === "ar-EG" ? "Arabic detected" : "English detected"}
+                  className="px-2 py-1 rounded-lg bg-white/5 text-obsidian-500 text-[9px] font-black uppercase tracking-wider min-w-[28px] text-center select-none transition-all"
+                >
+                  {detectedLang === "ar-EG" ? "AR" : "EN"}
+                </span>
+              )}
 
               <button
                 onClick={handleVoiceToggle}
