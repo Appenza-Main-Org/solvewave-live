@@ -71,29 +71,42 @@ class LiveClient:
         live_config = self._agent.build_live_config()
         client = genai.Client(api_key=settings.gemini_api_key)
 
-        async with client.aio.live.connect(
-            model=settings.gemini_model,
-            config=live_config,
-        ) as session:
-            logger.info("Gemini Live session opened [%s]", config.session_id)
+        logger.info(
+            "Opening Gemini Live session [%s] model=%s",
+            config.session_id, settings.gemini_model,
+        )
 
-            upstream_task = asyncio.create_task(
-                self._upstream(session, receive_audio, config)
+        try:
+            async with client.aio.live.connect(
+                model=settings.gemini_model,
+                config=live_config,
+            ) as session:
+                logger.info("Gemini Live session opened [%s]", config.session_id)
+
+                upstream_task = asyncio.create_task(
+                    self._upstream(session, receive_audio, config)
+                )
+                downstream_task = asyncio.create_task(
+                    self._downstream(session, send_audio, config, send_control)
+                )
+
+                # Upstream exits when browser sends None (disconnect or END).
+                # Cancel downstream so the async-for loop on session.receive() stops.
+                await upstream_task
+                downstream_task.cancel()
+                try:
+                    await downstream_task
+                except asyncio.CancelledError:
+                    pass
+
+            logger.info("Gemini Live session closed [%s]", config.session_id)
+        except Exception as exc:
+            logger.error(
+                "Gemini Live session FAILED [%s] model=%s: %s",
+                config.session_id, settings.gemini_model, exc,
             )
-            downstream_task = asyncio.create_task(
-                self._downstream(session, send_audio, config, send_control)
-            )
-
-            # Upstream exits when browser sends None (disconnect or END).
-            # Cancel downstream so the async-for loop on session.receive() stops.
-            await upstream_task
-            downstream_task.cancel()
-            try:
-                await downstream_task
-            except asyncio.CancelledError:
-                pass
-
-        logger.info("Gemini Live session closed [%s]", config.session_id)
+            import traceback
+            logger.error("Traceback: %s", traceback.format_exc())
 
     async def _upstream(self, session, receive_audio, config: SessionConfig) -> None:
         """Forward browser PCM chunks to Gemini."""

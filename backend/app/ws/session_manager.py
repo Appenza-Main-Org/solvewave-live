@@ -341,7 +341,14 @@ async def handle_session(websocket: WebSocket) -> None:
         )
     )
 
-    await asyncio.gather(receive_task, bridge_task, return_exceptions=True)
+    results = await asyncio.gather(receive_task, bridge_task, return_exceptions=True)
+    for i, result in enumerate(results):
+        if isinstance(result, Exception):
+            task_name = "receive_loop" if i == 0 else "bridge(LiveClient)"
+            logger.error(
+                "%s[session] %s raised: %s | session=%s",
+                _LOG, task_name, result, config.session_id,
+            )
 
     # ── Cleanup WebRTC ─────────────────────────────────────────────────────────
 
