@@ -63,6 +63,28 @@ function processInlineContent(text: string): string {
     }
   });
 
+  // Backtick math: `...` — render as inline KaTeX if it looks like math,
+  // otherwise render as code. Gemini often uses backticks for equations.
+  html = html.replace(/`([^`]+?)`/g, (_, content: string) => {
+    const trimmed = content.trim();
+    // Heuristic: treat as math if it contains math-like characters
+    const looksLikeMath = /[=+\-*/^√∫∑πΔ≤≥≠×÷]/.test(trimmed) ||
+      /\d+\s*[a-zA-Z]/.test(trimmed) ||   // e.g. "2x", "3n"
+      /[a-zA-Z]\s*[=<>]/.test(trimmed) ||  // e.g. "x = 5"
+      /\\(?:frac|sqrt|sum|int|lim)/.test(trimmed); // LaTeX commands
+    if (looksLikeMath) {
+      try {
+        return katex.renderToString(trimmed, {
+          displayMode: false,
+          throwOnError: false,
+        });
+      } catch {
+        return `<code class="px-2 py-0.5 rounded bg-white/10 text-sw-emerald font-mono text-[0.9em]">${content}</code>`;
+      }
+    }
+    return `<code class="px-2 py-0.5 rounded bg-white/10 text-sw-emerald font-mono text-[0.9em]">${content}</code>`;
+  });
+
   // Bold: **text**
   html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-black text-white">$1</strong>');
   html = html.replace(
