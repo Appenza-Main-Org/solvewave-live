@@ -94,6 +94,9 @@ export function useSessionSocket() {
     const ctx = playbackCtxRef.current;
     if (!ctx) return;
 
+    // Ensure playback context is running (Chrome auto-suspend protection)
+    if (ctx.state === "suspended") ctx.resume();
+
     // In WS fallback mode, also use chunk arrival as a speaking signal
     // (speaking_start/speaking_end control frames are the primary mechanism,
     // but this provides a safety net for WS-only mode)
@@ -191,6 +194,8 @@ export function useSessionSocket() {
         // Binary frame = PCM audio from Gemini Live (WS fallback only)
         if (typeof event.data !== "string") {
           if (!usingWebRTCRef.current) {
+            const size = (event.data as ArrayBuffer).byteLength;
+            log.voice(`Audio chunk received from backend: ${size} bytes, playbackCtx=${playbackCtxRef.current?.state}`);
             scheduleAudioChunk(event.data as ArrayBuffer);
           }
           return;
@@ -450,6 +455,11 @@ export function useSessionSocket() {
       const playbackCtx       = new AudioContext({ sampleRate: OUT_SAMPLE_RATE });
       playbackCtxRef.current  = playbackCtx;
       nextPlayTimeRef.current = playbackCtx.currentTime;
+
+      // Chrome suspends AudioContext until user gesture — resume explicitly
+      if (captureCtx.state === "suspended") await captureCtx.resume();
+      if (playbackCtx.state === "suspended") await playbackCtx.resume();
+      log.voice(`AudioContext states: capture=${captureCtx.state}, playback=${playbackCtx.state}`);
 
       startMicCapture(captureCtx, stream, ws);
       setVoiceActive(true);
