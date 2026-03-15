@@ -1,6 +1,6 @@
 # Proof of Google Cloud Deployment
 
-This document provides evidence that Faheem Math is built using Google Cloud services, satisfying the Gemini Live Agent Challenge requirement for Google Cloud deployment.
+This document provides evidence that SolveWave is built using Google Cloud services, satisfying the Gemini Live Agent Challenge requirement for Google Cloud deployment.
 
 ## Current Deployment
 

@@ -1,6 +1,6 @@
 # Implementation Summary — Gemini Live Agent Challenge Submission
 
-This document summarizes all changes made to prepare Faheem Math for submission to the Google Gemini Live Agent Challenge (Live Agents Track).
+This document summarizes all changes made to prepare SolveWave for submission to the Google Gemini Live Agent Challenge (Live Agents Track).
 
 **Date:** 2026-03-02
 **Implementation Duration:** Full day sprint
@@ -10,7 +10,7 @@ This document summarizes all changes made to prepare Faheem Math for submission 
 
 ## Overview
 
-Faheem Math has been fully prepared for the Gemini Live Agent Challenge with all required features, documentation, and bonus point items implemented.
+SolveWave has been fully prepared for the Gemini Live Agent Challenge with all required features, documentation, and bonus point items implemented.
 
 ---
 

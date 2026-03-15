@@ -71,7 +71,7 @@ This project satisfies all requirements for the **Live Agents 🗣️** track:
 ### ✅ Bonus Points
 - [x] **Automated deployment scripts** → [scripts/deploy.sh](scripts/deploy.sh), [scripts/deploy.ps1](scripts/deploy.ps1)
 - [x] **Content with #GeminiLiveAgentChallenge** → [Medium](https://medium.com/@ghareeb_45146/i-built-a-live-ai-math-tutor-you-can-interrupt-mid-sentence-b2a48c59403b) | [Dev.to](https://dev.to/mohamed_ghareeb_d1dab4200/i-built-a-live-ai-math-tutor-you-can-interrupt-mid-sentence-290d)
-- [ ] **GDG profile URL** → Add in [docs/submission/SUBMISSION.md](docs/submission/SUBMISSION.md) if applicable
+- [x] **GDG profile URL** → [gdg.community.dev/u/mb2zpv](https://gdg.community.dev/u/mb2zpv/#/about)
 
 ---
 

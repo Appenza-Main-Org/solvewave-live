@@ -1,4 +1,4 @@
-# Demo Script — Faheem Math (4-Minute Live Demo)
+# Demo Script — SolveWave (4-Minute Live Demo)
 
 **Duration:** 3:50 (10-second buffer under the 4-minute limit)
 **Audience:** Gemini Live Agent Challenge judges
@@ -15,7 +15,7 @@
 
 > "Most AI tutoring tools are just glorified chat boxes — you type a question, wait, get a wall of text. That's not how real tutoring works.
 >
-> Real tutoring is a conversation. You talk, you interrupt, you point at a problem. That's what **Faheem Math** does."
+> Real tutoring is a conversation. You talk, you interrupt, you point at a problem. That's what **SolveWave** does."
 
 **Why this works for judges:** Opens with the "breaks beyond text-box paradigm" criterion (40% of score). Sets up the contrast immediately.
 
@@ -47,9 +47,9 @@
 
 **[AmbientOrb changes: rose (Listening) → sky blue (Thinking) → emerald (Speaking). Audio starts.]**
 
-> The orb shifts to **Thinking**, then **Speaking**. Faheem is explaining the solution step by step — with audio and a written transcript, both updating in real time."
+> The orb shifts to **Thinking**, then **Speaking**. SolveWave is explaining the solution step by step — with audio and a written transcript, both updating in real time."
 
-**[Let Faheem speak for ~15-20 seconds. Don't rush — let judges hear the quality of the voice response and see the transcript populate.]**
+**[Let SolveWave speak for ~15-20 seconds. Don't rush — let judges hear the quality of the voice response and see the transcript populate.]**
 
 > "Notice the transcript shows student messages as 'U' and tutor responses as 'F', each timestamped."
 
@@ -57,19 +57,19 @@
 
 ### [1:10–1:45] Barge-in — The Hero Moment (35 seconds)
 
-**[CRITICAL: Time this so Faheem is mid-sentence when you interrupt. This is the most important feature for the Live Agents category.]**
+**[CRITICAL: Time this so SolveWave is mid-sentence when you interrupt. This is the most important feature for the Live Agents category.]**
 
-**[While Faheem is still speaking, interrupt boldly:]**
+**[While SolveWave is still speaking, interrupt boldly:]**
 
 > "Wait — what happens to the 5?"
 
 **[Point to the AmbientOrb as it flashes orange (Interrupted) then back to rose (Listening)]**
 
-> "Watch — the orb just flashed **orange** — Interrupted. Faheem stopped mid-sentence the instant I spoke. No button, no waiting for him to finish — I just talked over him, exactly like you'd interrupt a real tutor.
+> "Watch — the orb just flashed **orange** — Interrupted. SolveWave stopped mid-sentence the instant I spoke. No button, no waiting for it to finish — I just talked over it, exactly like you'd interrupt a real tutor.
 >
 > This is **barge-in handling** — Gemini's Live API detects that I started speaking and gracefully stops its own output."
 
-**[Faheem answers the follow-up. Let him speak ~10 seconds.]**
+**[SolveWave answers the follow-up. Let it speak ~10 seconds.]**
 
 > "And now he's answering my follow-up — context preserved, no confusion."
 
@@ -87,7 +87,7 @@
 
 > "Quiz me on solving equations."
 
-**[Faheem asks a question instead of explaining]**
+**[SolveWave asks a question instead of explaining]**
 
 > "Same tutor, different behavior — instead of explaining, he's testing me with a question. The system injects mode-specific instructions at runtime, so the tutor persona stays consistent but the approach changes.
 >
@@ -109,7 +109,7 @@
 
 > "The orb turns violet — **Seeing** — Gemini's 2.5 Flash vision model is reading the image.
 
-**[Faheem responds with a step-by-step solution. Let him speak ~15 seconds.]**
+**[SolveWave responds with a step-by-step solution. Let it speak ~15 seconds.]**
 
 > And here's the step-by-step solution — read directly from handwriting. Voice, text, and vision all flowing through a **single WebSocket connection**."
 
@@ -137,7 +137,7 @@
 
 **[Click "End Session" button (red, top-right)]**
 
-> "When the session ends, Faheem sends a recap — topics covered, session duration, problems worked through."
+> "When the session ends, SolveWave sends a recap — topics covered, session duration, problems worked through."
 
 **[Point to recap message in transcript. Point to timer display in the header.]**
 
@@ -149,7 +149,7 @@
 
 ### [3:45–3:50] Closing (5 seconds)
 
-> "That's **Faheem Math** — a live, voice-first AI tutor. Gemini Live API. Google Cloud Run. One WebSocket. Real tutoring.
+> "That's **SolveWave** — a live, voice-first AI tutor. Gemini Live API. Google Cloud Run. One WebSocket. Real tutoring.
 >
 > Thanks for watching."
 
@@ -181,8 +181,8 @@
 
 ## Recording Tips
 
-- **Barge-in timing is everything.** Practice the 1:10 interruption so Faheem is clearly mid-sentence when you cut in. If the timing is off, re-record just that section.
-- **Let Faheem talk.** Don't narrate over his responses — let judges hear the voice quality for 10-15 seconds at a time.
+- **Barge-in timing is everything.** Practice the 1:10 interruption so SolveWave is clearly mid-sentence when you cut in. If the timing is off, re-record just that section.
+- **Let SolveWave talk.** Don't narrate over its responses — let judges hear the voice quality for 10-15 seconds at a time.
 - **The AmbientOrb is your visual anchor.** Point to it during state changes — it makes the agent's state transitions dramatic and unmistakable on video.
 - **Camera auto-send is fast.** Have your test image ready. The moment you select/capture it, it sends — so make sure to call attention to the speed.
 - **Zoom to 110%.** UI elements read better on video at slight zoom.

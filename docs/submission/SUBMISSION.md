@@ -1,23 +1,26 @@
-# Submission: Faheem Math — Live AI Math Tutor
+# Submission: SolveWave — Live AI Math Tutor
 
 **Hackathon:** Google Gemini Live Agent Challenge
-**Track:** Live Agents 🗣️
+**Track:** Live Agents
 **Submitted by:** Mohamed Ghareeb
-**GDG Profile:** _(optional, for +0.2 bonus points)_
+**GDG Profile:** https://gdg.community.dev/u/mb2zpv/#/about
 **Demo Video:** _(add YouTube/Loom URL here after recording — under 4 minutes)_
 
 ---
 
 ## Summary
 
-**Faheem Math** is a real-time, voice-first, vision-enabled math tutor that uses the **Gemini Live API** to provide instant, step-by-step math explanations. Students can speak a problem, upload a photo of homework, or type a question — Faheem responds immediately with personalized guidance.
+**SolveWave** is a real-time, voice-first, vision-enabled math tutor that uses the **Gemini Live API** to provide instant, step-by-step math explanations. Students can speak a problem, upload a photo of homework, or type a question — SolveWave responds immediately with personalized guidance.
 
-The app supports **three tutoring modes** (Explain, Quiz, Homework) switchable mid-session, and features **full-duplex audio** with natural barge-in/interruption handling, making it feel like a live 1:1 tutoring session.
+**See it. Say it. Solve it.**
+
+The app supports **three tutoring modes** (Explain, Quiz, Homework) switchable mid-session, and features **full-duplex audio** with natural barge-in/interruption handling, making it feel like a live 1:1 tutoring session. Audio transport uses **WebRTC** (Opus codec with browser-native echo cancellation, noise suppression, and auto gain control) with automatic WebSocket fallback.
 
 ### Key Features
-- **Voice-first interaction** — Speak naturally; Faheem responds in real-time using Gemini's native audio capabilities
+- **Voice-first interaction** — Speak naturally; SolveWave responds in real-time using Gemini's native audio capabilities
 - **Barge-in support** — Interrupt the tutor mid-explanation; the system detects and handles it gracefully
-- **Vision-enabled** — Snap or upload homework; Faheem reads handwritten or printed math problems
+- **Vision-enabled** — Snap or upload homework; SolveWave reads handwritten or printed math problems
+- **WebRTC audio transport** — Opus-encoded audio over DTLS/SRTP with browser AEC/NS/AGC; automatic WebSocket PCM fallback
 - **Live transcription** — See your spoken words transcribed in real-time (Web Speech API)
 - **Session timer & recap** — Track session duration; get a summary at the end
 - **Three modes** — Explain (step-by-step), Quiz (test understanding), Homework (help solve actual problems)
@@ -30,15 +33,15 @@ The app supports **three tutoring modes** (Explain, Quiz, Homework) switchable m
 
 | Component | Technology |
 |-----------|-----------|
-| Frontend | Next.js 14 (App Router), React, TypeScript, Tailwind CSS |
-| Backend | FastAPI (Python 3.11), asyncio, WebSocket |
+| Frontend | Next.js 14 (App Router), React, TypeScript, Tailwind CSS, Framer Motion |
+| Backend | FastAPI (Python 3.12), asyncio, aiortc (WebRTC), WebSocket |
 | AI Model | Gemini 2.5 Flash (native audio for voice, standard for text/vision) |
 | AI SDK | Google GenAI SDK (official Python SDK) |
 | Cloud Platform | Google Cloud Run (backend + frontend) |
 | Build | Cloud Build (automatic containerization) |
-| Audio | Web Audio API, Gemini Live API (16kHz in, 24kHz out, PCM) |
+| Audio Transport | WebRTC (Opus, DTLS/SRTP) primary; WebSocket binary PCM fallback |
 | Transcription | Web Speech API (browser-based, real-time) |
-| Real-time Protocol | WebSocket (single connection for text, image, and audio) |
+| Real-time Protocol | WebRTC (audio) + WebSocket (control, text, image, signaling) |
 
 ---
 
@@ -53,35 +56,38 @@ The app supports **three tutoring modes** (Explain, Quiz, Homework) switchable m
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Browser (Next.js)                        │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  useSessionSocket.ts (WebSocket client)              │   │
-│  │  - Text messages (JSON)                              │   │
-│  │  - Image uploads (base64 JSON)                       │   │
-│  │  - Voice audio (binary PCM frames, 16kHz)            │   │
-│  │  - Playback (binary PCM frames, 24kHz)               │   │
-│  └──────────────────────────────────────────────────────┘   │
-└─────────────────────────┬───────────────────────────────────┘
-                          │ WebSocket (/ws/session)
-                          ▼
-┌─────────────────────────────────────────────────────────────┐
-│           FastAPI Backend (Cloud Run)                       │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │  session_manager.py                                  │   │
-│  │  - Route text → LiveClient.generate_text_reply       │   │
-│  │  - Route image → LiveClient.generate_image_reply     │   │
-│  │  - Route audio → LiveClient.run (bidirectional)      │   │
-│  └──────────────────────────────────────────────────────┘   │
-└─────────────────────────┬───────────────────────────────────┘
-                          │ google-genai SDK
-                          ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Gemini Live API (Google Cloud)                 │
-│  - gemini-2.5-flash-native-audio-latest (voice)             │
-│  - gemini-2.5-flash (text + images)                         │
-│  - Tool use: detect_problem_type, check_answer, hints       │
-└─────────────────────────────────────────────────────────────┘
++-----------------------------------------------------------+
+|                    Browser (Next.js 14)                     |
+|  +-------------------------------------------------------+ |
+|  |  useSessionSocket.ts (WebSocket control + signaling)   | |
+|  |  useWebRTC.ts (RTCPeerConnection + Opus audio)         | |
+|  |  useVoiceTranscription.ts (Web Speech API captions)    | |
+|  +-------------------------------------------------------+ |
++---------------------+-------------------+-----------------+
+                      |                   |
+          WebRTC (Opus audio)    WebSocket /ws/session
+          DTLS/SRTP over UDP     JSON: text/image/signaling
+                      |                   |
+                      v                   v
++-----------------------------------------------------------+
+|           FastAPI Backend (Cloud Run)                       |
+|  +-------------------------------------------------------+ |
+|  |  session_manager.py + webrtc_handler.py (aiortc)       | |
+|  |  - WebRTC: Opus decode -> 16kHz PCM -> Queue           | |
+|  |  - WS fallback: binary PCM -> Queue                    | |
+|  |  - Route text -> generate_text_reply                    | |
+|  |  - Route image -> generate_image_reply                  | |
+|  |  - Queue -> Gemini Live (bidirectional audio)           | |
+|  +-------------------------------------------------------+ |
++---------------------+------------------------------------+
+                      | google-genai SDK
+                      v
++-----------------------------------------------------------+
+|              Gemini Live API (Google Cloud)                 |
+|  - gemini-2.5-flash-native-audio-latest (voice + tools)    |
+|  - gemini-2.5-flash (text + vision)                        |
+|  - Tool use: detect_problem_type, check_answer, hints      |
++-----------------------------------------------------------+
 ```
 
 See [docs/architecture-diagram.png](docs/architecture-diagram.png) for a visual diagram.
@@ -95,70 +101,70 @@ See [docs/architecture-diagram.png](docs/architecture-diagram.png) for a visual 
    - We surface this with an "Interrupted" live state indicator (orange pulse) for 900ms
    - This makes the tutor feel responsive and human-like
 
-### 2. **Single WebSocket for all modalities is cleaner than multi-connection setups**
-   - We initially considered separate connections for audio vs. text/images
-   - Using a single WebSocket with binary frames (audio) + JSON frames (control/text/image) simplified state management
-   - `asyncio.Queue` decouples WebSocket receive from Gemini Live upstream, preventing backpressure
+### 2. **WebRTC + WebSocket dual-channel architecture**
+   - WebRTC (via aiortc) provides low-latency Opus audio with browser-native AEC/NS/AGC
+   - WebSocket serves as the control channel (text, images, signaling) and fallback audio path
+   - Both audio sources feed the same `asyncio.Queue`, making the fallback seamless
+   - Cloud Run lacks UDP support, so WebRTC auto-falls back to WebSocket binary audio unless a TURN server is configured
 
 ### 3. **Web Speech API for live transcription works well but has limitations**
    - Chrome/Edge support it natively; Safari/Firefox support is partial or experimental
    - Partial results update in real-time, giving instant feedback
-   - Final transcripts are surprisingly accurate for math terminology (but struggle with some symbols like "x²" vs. "x squared")
+   - Final transcripts are surprisingly accurate for math terminology
 
-### 4. **Mode-specific system prompt addendums are powerful**
+### 4. **Dual response path ensures reliability**
+   - Voice input simultaneously goes to Gemini Live API (audio) and standard text API (transcript)
+   - Students always get both a spoken answer and a written transcript
+   - Echo suppression prevents transcription from picking up tutor audio
+
+### 5. **Mode-specific system prompt addendums are powerful**
    - Instead of hardcoding three separate system prompts, we inject short addendums at runtime (Explain / Quiz / Homework)
    - This keeps the base tutor persona consistent while adapting behavior per mode
    - Students can switch modes mid-session without losing context
 
-### 5. **Stub mode (demo mode) is critical for judge testing**
+### 6. **Stub mode (demo mode) is critical for judge testing**
    - We implemented `GEMINI_STUB=true` to return canned responses without hitting the API
    - This ensures judges can test the full UX flow (WebSocket, audio playback, UI states) without needing a paid API key
    - All UI states (Connecting, Listening, Speaking, Interrupted) work in stub mode
 
-### 6. **Cloud Run deployment is simple but requires explicit CORS handling**
+### 7. **Cloud Run deployment is simple but requires explicit CORS handling**
    - Cloud Run automatically injects `PORT` env var and handles TLS
    - WebSocket upgrade works seamlessly (wss://)
-   - CORS must be configured explicitly for cross-origin frontend → backend connections
-   - We use `CORS_ORIGINS` env var (JSON array) for flexible deployment
-
-### 7. **Session timer + recap adds accountability**
-   - Tracking session duration helps students understand how long they've been working
-   - End-of-session recap (summary, duration, problem count) provides closure
-   - Displaying duration in `mm:ss` format is more intuitive than raw seconds
+   - CORS must be configured explicitly for cross-origin frontend -> backend connections
 
 ---
 
 ## Challenge Requirements Checklist
 
-### ✅ What to Build (Live Agents Track)
+### What to Build (Live Agents Track)
 - [x] New project created during contest period
 - [x] Multimodal inputs and outputs (audio + vision + text)
 - [x] Voice-first, real-time interaction
 - [x] Handles interruptions/barge-in naturally
 
-### ✅ All Projects MUST
+### All Projects MUST
 - [x] Leverages a Gemini model (`gemini-2.5-flash-native-audio-latest`, `gemini-2.5-flash`)
 - [x] Built using Google GenAI SDK (official Python SDK)
 - [x] Uses Google Cloud service (Cloud Run, Cloud Build, Gemini API)
 
-### ✅ What to Submit
+### What to Submit
 - [x] Text description with summary, technologies, data sources, findings (this file)
 - [x] Public code repository with spin-up instructions ([GitHub](https://github.com/Appenza-Main-Org/faheem-live-competition))
 - [x] Proof of Google Cloud deployment (see [PROOF_OF_GCP.md](PROOF_OF_GCP.md))
 - [x] Architecture diagram (see [docs/architecture-diagram.png](docs/architecture-diagram.png))
 - [x] Demo video under 4 minutes showing multimodal/agentic features _(add URL after recording)_
 
-### ✅ Rules Compliance
+### Rules Compliance
 - [x] Testing access provided (stub mode + free deployment instructions in README)
 - [x] Free and unrestricted for judges through end of judging
 - [x] English UI and submission materials
 
-### ✅ Bonus Points
+### Bonus Points
 - [x] Automated cloud deployment scripts ([scripts/deploy.sh](scripts/deploy.sh), [scripts/deploy.ps1](scripts/deploy.ps1))
 - [x] Content published with #GeminiLiveAgentChallenge:
   - [Medium](https://medium.com/@ghareeb_45146/i-built-a-live-ai-math-tutor-you-can-interrupt-mid-sentence-b2a48c59403b)
   - [Dev.to](https://dev.to/mohamed_ghareeb_d1dab4200/i-built-a-live-ai-math-tutor-you-can-interrupt-mid-sentence-290d)
-- [ ] GDG membership profile URL (add above if applicable)
+- [x] GDG membership profile URL: https://gdg.community.dev/u/mb2zpv/#/about
 
 ---
 
@@ -214,5 +220,5 @@ MIT
 
 ---
 
-**Last updated:** 2026-03-03
+**Last updated:** 2026-03-15
 **Submission prepared for:** Google Gemini Live Agent Challenge (Live Agents Track)

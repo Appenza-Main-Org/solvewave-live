@@ -1,4 +1,4 @@
-# Demo Checklist — Faheem Math Live Demo (v0.5.1)
+# Demo Checklist — SolveWave Live Demo (v0.5.1)
 
 **Target duration:** Under 4 minutes
 **Goal:** Showcase all multimodal features, live agent capabilities, and barge-in handling
@@ -34,7 +34,7 @@
 
 ### 0:00–0:15 — Introduction & Context (15 seconds)
 - [ ] Show the session page (idle state — AmbientOrb glows slate)
-- [ ] Say: "This is **Faheem Math**, a live AI math tutor built for the Gemini Live Agent Challenge."
+- [ ] Say: "This is **SolveWave**, a live AI math tutor built for the Gemini Live Agent Challenge."
 - [ ] Say: "It uses Gemini's Live API for real-time voice, vision, and step-by-step math coaching."
 - [ ] Say: "Let me show you how it works."
 
@@ -52,18 +52,18 @@
 - [ ] **Point out:**
   - [ ] Live transcription: your words appear word-by-word in the transcript canvas
   - [ ] AmbientOrb changes: rose (Listening) → sky blue (Thinking) → emerald (Speaking)
-  - [ ] Faheem responds with audio + written explanation simultaneously
+  - [ ] SolveWave responds with audio + written explanation simultaneously
   - [ ] Transcript shows both student (U) and tutor (F) messages with timestamps
-- [ ] **Wait for Faheem to finish explaining** (~15-20 seconds)
+- [ ] **Wait for SolveWave to finish explaining** (~15-20 seconds)
 
 ### 1:10–1:45 — Feature 2: Barge-in / Interruption (35 seconds)
-- [ ] **While Faheem is speaking,** interrupt by speaking: "Wait, can you explain the first step again?"
+- [ ] **While SolveWave is speaking,** interrupt by speaking: "Wait, can you explain the first step again?"
 - [ ] **Point out:**
   - [ ] AmbientOrb flashes **orange** (Interrupted state)
   - [ ] State label shows "Interrupted"
-  - [ ] Faheem stops speaking immediately — no lingering audio
+  - [ ] SolveWave stops speaking immediately — no lingering audio
   - [ ] Your new question is processed
-  - [ ] Faheem responds to the follow-up with context preserved
+  - [ ] SolveWave responds to the follow-up with context preserved
 - [ ] Say: "This barge-in handling makes it feel like a real tutor."
 
 ### 1:45–2:10 — Feature 3: Mode Switching (Quiz Mode) (25 seconds)
@@ -87,8 +87,8 @@
   - [ ] Brief "📷 Image Sent" feedback toast appears
   - [ ] AmbientOrb turns **violet** (Seeing state)
   - [ ] State label: "Seeing… Reading your image"
-- [ ] **Wait for Faheem to read and explain** (~15-20 seconds)
-- [ ] **Point out:** "Faheem read the handwritten problem and explained the solution — all through one WebSocket."
+- [ ] **Wait for SolveWave to read and explain** (~15-20 seconds)
+- [ ] **Point out:** "SolveWave read the handwritten problem and explained the solution — all through one WebSocket."
 
 ### 2:55–3:25 — Feature 5: Architecture & Cloud (30 seconds)
 - [ ] Optional: open architecture-diagram.png in new tab for visual reference
@@ -113,7 +113,7 @@
 - [ ] Say: "The recap summarizes what we worked on and how long the session lasted."
 
 ### 3:45–3:50 — Closing (5 seconds)
-- [ ] Say: "That's Faheem Math — a live, voice-first AI tutor built with Gemini Live API."
+- [ ] Say: "That's SolveWave — a live, voice-first AI tutor built with Gemini Live API."
 - [ ] Say: "Deployed on Google Cloud Run. Powered by Gemini 2.5 Flash."
 - [ ] Say: "Thanks for watching!"
 

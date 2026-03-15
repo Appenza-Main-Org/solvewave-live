@@ -1,12 +1,12 @@
-# Architecture Diagram — Faheem Math (v0.6.0)
+# Architecture Diagram — SolveWave (v0.6.0)
 
-This document describes the architecture diagram for Faheem Math. Use this as a reference to create a visual diagram (PNG/SVG).
+This document describes the architecture diagram for SolveWave. Use this as a reference to create a visual diagram (PNG/SVG).
 
 ---
 
 ## Overview
 
-Faheem Math uses **WebRTC for real-time audio transport** (with WebSocket fallback) and a **WebSocket control channel** for text, images, and signaling, with three main layers:
+SolveWave uses **WebRTC for real-time audio transport** (with WebSocket fallback) and a **WebSocket control channel** for text, images, and signaling, with three main layers:
 
 1. **Browser (Frontend)** — Next.js 14, React, Framer Motion, WebRTC, Web Speech API
 2. **Backend (API Layer)** — FastAPI, asyncio, aiortc (WebRTC), WebSocket, mode routing
@@ -174,7 +174,7 @@ Faheem Math uses **WebRTC for real-time audio transport** (with WebSocket fallba
 |  +---------------------------------------------------------------------+ |
 |                                                                           |
 |  +---------------------------------------------------------------------+ |
-|  |  tutor_agent.py -- Faheem Persona & Tools                            | |
+|  |  tutor_agent.py -- SolveWave Persona & Tools                            | |
 |  |  - system_prompt.md (math tutor persona)                             | |
 |  |  - Tool schemas: detect_problem_type, check_answer,                  | |
 |  |                  generate_next_hint, build_session_recap              | |
@@ -255,7 +255,7 @@ Student speaks -> Web Speech API transcribes locally ->
 ### 3. Barge-in (Interruption)
 
 ```
-Student speaks while Faheem is speaking ->
+Student speaks while SolveWave is speaking ->
   Web Audio API continues sending mic input ->
     Gemini Live API detects interruption ->
       Backend receives interruption signal ->
@@ -356,7 +356,7 @@ Session starts -> Frontend starts timer (mm:ss) ->
    - Framer Motion for smooth state transitions
 
 9. **Live state indicator** -- 9 distinct states visible in UI
-   - Transparent "what is Faheem doing right now"
+   - Transparent "what is SolveWave doing right now"
    - AmbientOrb + dot indicator + label all reflect state
    - Helps students understand when to speak
    - Makes barge-in detection visible
@@ -375,7 +375,7 @@ RootLayout (layout.tsx)
       |
       +-- Header Bar
       |   +-- FaheemLogo (custom SVG)
-      |   +-- Brand Title ("Faheem Math")
+      |   +-- Brand Title ("SolveWave")
       |   +-- Status Dot (animated, state-colored)
       |   +-- ModeSelector (segmented: Explain/Quiz/Homework) [desktop]
       |   +-- Timer Display (mm:ss, mono font)

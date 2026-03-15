@@ -1,4 +1,4 @@
-# Faheem Math — Architecture (Mermaid) v0.5.1
+# SolveWave — Architecture (Mermaid) v0.5.1
 
 ## System Overview
 

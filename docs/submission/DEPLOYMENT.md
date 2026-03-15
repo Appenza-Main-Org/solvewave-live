@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This document explains how to deploy Faheem Math to Google Cloud Run.
+This document explains how to deploy SolveWave to Google Cloud Run.
 
 ---
 

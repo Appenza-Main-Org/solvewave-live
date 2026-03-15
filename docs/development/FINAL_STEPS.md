@@ -150,7 +150,7 @@ git push
 **After recording:**
 1. Export video (1080p recommended)
 2. Upload to YouTube:
-   - Title: "Faheem Math - Live AI Math Tutor (Gemini Live Agent Challenge)"
+   - Title: "SolveWave - Live AI Math Tutor (Gemini Live Agent Challenge)"
    - Description: "Real-time math tutoring with Gemini Live API"
    - Visibility: Unlisted (or Public)
 3. Copy the YouTube URL
@@ -198,7 +198,7 @@ git push
 2. **Click:** "Submit Project" or "Register"
 
 3. **Fill in submission form:**
-   - **Project Name:** Faheem Math — Live AI Math Tutor
+   - **Project Name:** SolveWave — Live AI Math Tutor
    - **Tagline:** Real-time, voice-first math tutoring with Gemini Live API
    - **Description:** Copy from [SUBMISSION.md](SUBMISSION.md) (entire file)
    - **GitHub URL:** https://github.com/Appenza-Main-Org/faheem-live-competition

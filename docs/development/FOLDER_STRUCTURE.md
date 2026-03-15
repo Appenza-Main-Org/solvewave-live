@@ -1,4 +1,4 @@
-# Folder Structure — Faheem Math
+# Folder Structure — SolveWave
 
 ```
 faheem-live-gemini/

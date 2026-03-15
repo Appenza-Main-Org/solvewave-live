@@ -1,13 +1,15 @@
 # I Built a Live AI Math Tutor You Can Interrupt Mid-Sentence
 
-How Gemini's Live API made real-time, voice-first tutoring possible — and what I learned along the way.
+How Gemini's Live API made real-time, voice-first tutoring possible — and what I learned building WebRTC audio transport on top of it.
 
 #GeminiLiveAgentChallenge
 
 
 The 10-Second Pitch
 
-Faheem Math is a live AI math tutor where students speak a problem, get an instant audio explanation, and can interrupt mid-sentence to ask "wait, what?" — just like with a real tutor. It also reads handwritten homework from photos and adapts its teaching style on the fly.
+**SolveWave** is a live AI math tutor where students speak a problem, get an instant audio explanation, and can interrupt mid-sentence to ask "wait, what?" — just like with a real tutor. It also reads handwritten homework from photos and adapts its teaching style on the fly.
+
+**See it. Say it. Solve it.**
 
 Try it live: https://faheem-math-frontend-872506223416.us-central1.run.app
 Code: https://github.com/Appenza-Main-Org/faheem-live-competition
@@ -22,13 +24,13 @@ Real tutoring is messy. A student says "I don't get fractions," the tutor starts
 When I saw that Google's Gemini Live API supported full-duplex audio with native barge-in detection, I knew I could build something that actually felt like a conversation.
 
 
-What Faheem Math Does
+What SolveWave Does
 
 Three ways to ask:
 
 Speak a problem — "How do I solve 2x + 5 = 17?" — and hear a step-by-step explanation instantly.
 
-Upload a photo of handwritten homework — Faheem reads it and walks you through the solution.
+Upload a photo of handwritten homework — SolveWave reads it and walks you through the solution.
 
 Type if you prefer — same tutor, same quality.
 
@@ -40,51 +42,61 @@ Quiz — flips the script and asks you questions to test understanding.
 
 Homework — works through full problem sets, showing every step.
 
-The key feature is barge-in. You can interrupt Faheem mid-explanation. He stops immediately, listens to your follow-up, and responds — no button press, no waiting. This is what makes it feel like a real tutor instead of a voice assistant.
+The key feature is barge-in. You can interrupt SolveWave mid-explanation. It stops immediately, listens to your follow-up, and responds — no button press, no waiting. This is what makes it feel like a real tutor instead of a voice assistant.
 
 
-How It Works: One WebSocket, Three Modalities
+How It Works: WebRTC Audio + WebSocket Control
 
-The architecture is deliberately simple. Everything flows through a single WebSocket connection:
+The architecture uses two communication channels working together:
 
 ```
-Browser  <--WebSocket-->  FastAPI Backend  <--Live API-->  Gemini
+Browser  <--WebRTC (Opus audio)--->  FastAPI Backend  <--Live API-->  Gemini
+Browser  <--WebSocket (control)---->  FastAPI Backend
 ```
 
-Three message types share one connection:
+**WebRTC** handles real-time audio transport (primary path). The browser captures audio with echo cancellation, noise suppression, and auto gain control enabled at the hardware level. Audio is Opus-encoded and sent over DTLS/SRTP — lower latency than TCP.
 
-1. Binary frames — raw PCM audio (16kHz from mic, 24kHz from tutor)
-2. JSON text — typed messages, status updates, session recap
-3. JSON image — base64-encoded homework photos for vision
-
-No separate connections for audio vs. text. No complex state sync. One pipe, three modalities.
+**WebSocket** handles everything else — text messages, image uploads, signaling, status updates, and session control. It also serves as the fallback audio path (raw PCM binary frames) when WebRTC can't establish a connection (e.g., on Cloud Run without a TURN server).
 
 The Backend
 
 FastAPI with two concurrent asyncio tasks:
 
-Upstream: mic audio flows from the browser through an asyncio.Queue to Gemini Live.
+Upstream: audio (from WebRTC or WS fallback) flows through an asyncio.Queue to Gemini Live.
 
-Downstream: Gemini's audio response streams back to the browser speaker.
+Downstream: Gemini's audio response streams back — either through WebRTC (Opus-encoded via a custom GeminiOutputTrack) or WebSocket binary frames.
 
-The asyncio.Queue was a critical design choice — it decouples the WebSocket receive loop from the Gemini send loop, preventing audio backpressure from blocking the connection.
+The asyncio.Queue was a critical design choice. Both WebRTC and WebSocket audio sources feed the same queue, which decouples the receive path from the Gemini send loop. This prevents audio backpressure from blocking either connection and makes the fallback seamless.
 
 Text and image requests use Gemini's standard generate API (gemini-2.5-flash) rather than the Live API, since they don't need streaming audio.
 
 The Frontend
 
-Next.js 14 with three key browser APIs:
+Next.js 14 with four key hooks:
 
-Web Audio API — captures mic at 16kHz PCM, plays tutor audio at 24kHz.
+useSessionSocket — WebSocket control channel, live state management, text/image messaging, WebRTC negotiation.
 
-Web Speech API — live transcription of what the student says (partial results update word-by-word).
+useWebRTC — RTCPeerConnection lifecycle, getUserMedia with AEC/NS/AGC, SDP offer/answer exchange, mic mute/unmute, remote audio auto-playback.
 
-KaTeX — renders LaTeX math notation in the chat transcript.
+useVoiceTranscription — Web Speech API for live transcription (partial results update word-by-word, echo suppression while tutor speaks).
+
+useSessionTimer — Session duration tracking in mm:ss format.
 
 The UI tracks eight distinct live states (Idle, Connecting, Live, Listening, Thinking, Speaking, Seeing, Interrupted) — each with its own visual indicator so students always know what the tutor is doing.
 
 
 The Hard Parts
+
+WebRTC on Cloud Run
+
+Cloud Run doesn't support raw UDP traffic, which WebRTC media requires. I solved this with a graceful fallback architecture:
+
+1. Browser sends an SDP offer via the existing WebSocket
+2. Backend (using aiortc) creates a peer connection and responds with an SDP answer
+3. If ICE succeeds (local dev, or with a TURN server) — WebRTC audio flows
+4. If ICE fails — the system automatically falls back to WebSocket binary audio
+
+The browser still benefits from getUserMedia's AEC/NS/AGC constraints even in fallback mode. The student never knows which transport is active.
 
 Barge-in UX
 
@@ -95,7 +107,7 @@ Gemini's Live API detects interruptions automatically — but surfacing that in 
 3. Sends an "interrupted" control message to the frontend
 4. The UI flashes an orange "Interrupted" indicator for 900ms
 
-The result: the student talks over Faheem, Faheem stops within a fraction of a second, and the UI confirms it happened. It feels natural.
+The result: the student talks over SolveWave, it stops within a fraction of a second, and the UI confirms it happened. It feels natural.
 
 Web Speech API Auto-Restart
 
@@ -103,19 +115,14 @@ Chrome's Web Speech API has a quirk: even with continuous mode enabled, it somet
 
 The fix: a wantRunningRef flag that tracks whether the user wants transcription active. When the recognition's onend fires unexpectedly, we check the flag and auto-restart a new instance — reusing the same event handlers. The user never notices.
 
-Partial vs. Final Transcripts
+Dual Audio + Text Response Path
 
-The Web Speech API fires interim results and final results. I maintain a "partial transcript index" that updates a single row in place as the student speaks, then locks it in when the utterance is complete. This gives word-by-word feedback without flooding the chat with duplicate lines.
+When a student speaks, two things happen simultaneously:
 
-Mode Switching Without Losing Context
+1. Audio goes to Gemini Live API (via WebRTC/WS) for a voice response
+2. Web Speech API transcribes locally, and the final transcript is sent to the standard text API for a guaranteed text response
 
-Rather than maintaining three separate system prompts, I inject short mode-specific addendums at runtime:
-
-```
-effective_prompt = base_prompt + MODE_ADDENDUM[mode]
-```
-
-The base tutor persona stays consistent. Only the behavioral instructions change — "ask questions" in Quiz mode, "show all work" in Homework mode.
+This dual path means the student always gets both a spoken answer and a written transcript — even if one path hiccups.
 
 
 Deployment: Cloud Run
@@ -140,11 +147,13 @@ AI Model: Gemini 2.5 Flash — native audio (gemini-2.5-flash-native-audio-lates
 
 SDK: Google GenAI SDK (google-genai Python package)
 
-Backend: FastAPI + asyncio + WebSockets
+Backend: FastAPI + asyncio + aiortc (WebRTC) + WebSockets
 
-Frontend: Next.js 14 (App Router) + Tailwind CSS + TypeScript
+Frontend: Next.js 14 (App Router) + Tailwind CSS + TypeScript + Framer Motion
 
-Audio: Web Audio API (capture/playback) + Web Speech API (transcription)
+Audio Transport: WebRTC (Opus, DTLS/SRTP) with WebSocket PCM fallback
+
+Transcription: Web Speech API (browser-native, real-time)
 
 Math Rendering: KaTeX (LaTeX in chat bubbles)
 
@@ -161,7 +170,7 @@ Progress tracking — track which topics a student struggles with across session
 
 Multi-subject expansion — the architecture generalizes beyond math (science, language arts).
 
-Collaborative mode — multiple students in one session, taking turns.
+TURN server on GCE — full WebRTC audio on Cloud Run without fallback.
 
 
 Try It
@@ -184,4 +193,4 @@ Full source: https://github.com/Appenza-Main-Org/faheem-live-competition
 
 Built for the Google Gemini Live Agent Challenge.
 
-#GeminiLiveAgentChallenge #GoogleGemini #LiveAgents #AI #EdTech #MathTutor #CloudRun #GeminiLiveAPI
+#GeminiLiveAgentChallenge #GoogleGemini #LiveAgents #AI #EdTech #MathTutor #CloudRun #GeminiLiveAPI #WebRTC
