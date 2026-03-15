@@ -244,12 +244,26 @@ async def handle_session(websocket: WebSocket) -> None:
                     )
                     use_webrtc = False
 
-                webrtc_handler = WebRTCHandler(audio_queue=audio_queue, on_ice_failed=_on_ice_failed)
+                def _on_ice_connected():
+                    nonlocal use_webrtc
+                    logger.info(
+                        "%s[rtc] ICE connected — WebRTC audio now active | session=%s",
+                        _LOG, config.session_id,
+                    )
+                    use_webrtc = True
+
+                webrtc_handler = WebRTCHandler(
+                    audio_queue=audio_queue,
+                    on_ice_failed=_on_ice_failed,
+                    on_ice_connected=_on_ice_connected,
+                )
                 answer = await webrtc_handler.handle_offer(data["sdp"])
                 await websocket.send_json({"type": "rtc_answer", **answer})
-                use_webrtc = True
+                # NOTE: use_webrtc stays False until ICE actually connects
+                # (on_ice_connected callback). This prevents sending audio to
+                # a dead WebRTC track on Cloud Run where ICE always fails.
                 logger.info(
-                    "%s[rtc] SDP answer sent, WebRTC audio active | session=%s",
+                    "%s[rtc] SDP answer sent, waiting for ICE to connect | session=%s",
                     _LOG, config.session_id,
                 )
             except Exception as exc:
