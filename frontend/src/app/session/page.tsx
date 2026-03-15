@@ -191,7 +191,7 @@ export default function SessionPage() {
     }
   }, [setTranscript]);
 
-  const { isSupported: transcriptionSupported, isRunning: transcriptionRunning, detectedLang, startTranscription, stopTranscription } =
+  const { isSupported: transcriptionSupported, isRunning: transcriptionRunning, startTranscription, stopTranscription } =
     useVoiceTranscription({
       onPartial: onPartialTranscript,
       onFinal: onFinalTranscript,
@@ -488,17 +488,13 @@ export default function SessionPage() {
                 <Camera size={20} />
               </button>
 
-              {/* Auto-detected language indicator */}
+              {/* Language indicator */}
               {voiceActive && (
                 <span
-                  title={detectedLang === "ar-EG" ? "Arabic detected" : "English detected"}
-                  className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider min-w-[28px] text-center select-none transition-all duration-500 ${
-                    detectedLang === "ar-EG"
-                      ? "bg-sw-emerald/20 text-sw-emerald border border-sw-emerald/30"
-                      : "bg-white/5 text-obsidian-500 border border-white/5"
-                  }`}
+                  title="English"
+                  className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider min-w-[28px] text-center select-none bg-white/5 text-obsidian-500 border border-white/5"
                 >
-                  {detectedLang === "ar-EG" ? "عر" : "EN"}
+                  EN
                 </span>
               )}
 
