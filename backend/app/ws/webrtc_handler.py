@@ -105,7 +105,7 @@ class WebRTCHandler:
     Signaling (SDP offer/answer) flows over the existing WebSocket.
     """
 
-    def __init__(self, audio_queue: asyncio.Queue) -> None:
+    def __init__(self, audio_queue: asyncio.Queue, on_ice_failed=None) -> None:
         settings = get_settings()
 
         # Build ICE server list
@@ -137,6 +137,7 @@ class WebRTCHandler:
         self._audio_queue = audio_queue
         self._connected = asyncio.Event()
         self._consumer_task: asyncio.Task | None = None
+        self._on_ice_failed = on_ice_failed
 
         # Add output track so the browser can receive Gemini audio
         self._pc.addTrack(self._output_track)
@@ -158,6 +159,9 @@ class WebRTCHandler:
                 self._connected.set()
             elif state in ("failed", "closed", "disconnected"):
                 self._connected.clear()
+                if state == "failed" and self._on_ice_failed:
+                    logger.info("%s ICE failed — notifying session to fall back to WS", _LOG)
+                    self._on_ice_failed()
 
     # ── Signaling ────────────────────────────────────────────────────────────
 

@@ -236,7 +236,15 @@ async def handle_session(websocket: WebSocket) -> None:
                 "%s[rtc] SDP offer received | session=%s", _LOG, config.session_id
             )
             try:
-                webrtc_handler = WebRTCHandler(audio_queue=audio_queue)
+                def _on_ice_failed():
+                    nonlocal use_webrtc
+                    logger.info(
+                        "%s[rtc] ICE failed — falling back to WS audio | session=%s",
+                        _LOG, config.session_id,
+                    )
+                    use_webrtc = False
+
+                webrtc_handler = WebRTCHandler(audio_queue=audio_queue, on_ice_failed=_on_ice_failed)
                 answer = await webrtc_handler.handle_offer(data["sdp"])
                 await websocket.send_json({"type": "rtc_answer", **answer})
                 use_webrtc = True
