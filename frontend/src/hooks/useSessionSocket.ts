@@ -139,6 +139,12 @@ export function useSessionSocket() {
       if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current);
       speakingTimerRef.current = setTimeout(() => {
         setIsSpeaking(false);
+        // CRITICAL: Also unmute mic here. Without this, if a late audio chunk
+        // arrives AFTER the speaking_end control message, this timer replaces
+        // the speaking_end timer (which included mic unmute), causing the mic
+        // to stay permanently muted after the first tutor response.
+        micMutedRef.current = false;
+        bargeInFrameCountRef.current = 0;
       }, 600);
     }
 
