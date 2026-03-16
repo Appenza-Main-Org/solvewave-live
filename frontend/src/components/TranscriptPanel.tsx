@@ -27,6 +27,7 @@ export interface TranscriptEntry {
 interface TranscriptPanelProps {
   entries: TranscriptEntry[];
   isThinking?: boolean;
+  isSpeaking?: boolean;
   onSpeak?: (text: string) => void;
 }
 
@@ -152,8 +153,13 @@ function renderTextLines(text: string) {
 export default function TranscriptPanel({
   entries,
   isThinking = false,
+  isSpeaking = false,
   onSpeak,
 }: TranscriptPanelProps) {
+  // Find the index of the last tutor message (for speaking highlight)
+  const lastTutorIdx = isSpeaking
+    ? entries.reduce((acc, e, i) => (e.role === "tutor" ? i : acc), -1)
+    : -1;
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -198,6 +204,7 @@ export default function TranscriptPanel({
           const isPartial = e.partial === true;
 
           const isRtl = isArabicText(e.text);
+          const isCurrentlySpeaking = i === lastTutorIdx;
 
           return (
             <motion.div
@@ -212,7 +219,9 @@ export default function TranscriptPanel({
                 {/* Avatar / Side Indicator */}
                 <div className="flex-none flex flex-col items-center">
                   <div className={`w-1 h-full rounded-full transition-colors duration-500 ${
-                    e.role === "tutor" ? "bg-sw-emerald/40 shadow-[0_0_15px_rgba(16,185,129,0.3)]" : "bg-obsidian-700"
+                    isCurrentlySpeaking
+                      ? "bg-sw-emerald shadow-[0_0_20px_rgba(16,185,129,0.6)]"
+                      : e.role === "tutor" ? "bg-sw-emerald/40 shadow-[0_0_15px_rgba(16,185,129,0.3)]" : "bg-obsidian-700"
                   }`} />
                 </div>
 
@@ -221,9 +230,21 @@ export default function TranscriptPanel({
 
                   {/* Role Label */}
                   <div className="flex items-center gap-4 px-1">
-                    <span className="text-[10px] font-black uppercase tracking-[0.25em] text-obsidian-500">
+                    <span className={`text-[10px] font-black uppercase tracking-[0.25em] transition-colors duration-300 ${
+                      isCurrentlySpeaking ? "text-sw-emerald" : "text-obsidian-500"
+                    }`}>
                       {e.role === "tutor" ? "SolveWave" : "Student"}
                     </span>
+                    {isCurrentlySpeaking && (
+                      <motion.span
+                        animate={{ opacity: [0.6, 1, 0.6] }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                        className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-sw-emerald bg-sw-emerald/10 px-3 py-1 rounded-lg border border-sw-emerald/20 shadow-[0_0_10px_rgba(16,185,129,0.15)]"
+                      >
+                        <Volume2 size={11} />
+                        Speaking
+                      </motion.span>
+                    )}
                     {isRecap && (
                       <span className="text-[9px] font-black uppercase tracking-widest text-sw-emerald bg-sw-emerald/10 px-3 py-1 rounded border border-sw-emerald/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
                         Deep Dive Recap
@@ -245,10 +266,14 @@ export default function TranscriptPanel({
                   <div
                     dir={isRtl ? "rtl" : undefined}
                     className={`
-                    relative text-obsidian-50 leading-[1.8] w-full
+                    relative text-obsidian-50 leading-[1.8] w-full transition-all duration-500
                     ${isRtl ? "text-right" : ""}
                     ${e.role === "tutor"
-                      ? "text-[14px] sm:text-[15px] lg:text-[16px] font-medium tracking-tight"
+                      ? `text-[14px] sm:text-[15px] lg:text-[16px] font-medium tracking-tight ${
+                          isCurrentlySpeaking
+                            ? "pl-4 border-l-2 border-sw-emerald/40 bg-sw-emerald/[0.03] rounded-lg"
+                            : ""
+                        }`
                       : "text-[14px] px-6 py-4 rounded-3xl bg-obsidian-900/80 border border-obsidian-800 shadow-xl"
                     }
                   `}>

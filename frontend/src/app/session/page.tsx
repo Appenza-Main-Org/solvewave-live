@@ -115,13 +115,33 @@ export default function SessionPage() {
   const isSpeakingRef = useRef(isSpeaking);
   isSpeakingRef.current = isSpeaking;
 
+  // ── Echo suppression: cooldown after tutor finishes speaking ────────────
+  // Web Speech API picks up tutor audio from the speaker. The isSpeaking flag
+  // flips false when Gemini sends "speaking_end", but audio buffers are still
+  // draining for 1-3 seconds. This cooldown prevents the echo loop.
+  const speakingCooldownRef = useRef(false);
+  useEffect(() => {
+    if (isSpeaking) {
+      speakingCooldownRef.current = true;
+    } else {
+      // Keep cooldown active for 3s after speaking ends (audio drain time)
+      const timer = setTimeout(() => {
+        speakingCooldownRef.current = false;
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isSpeaking]);
+
+  // Track whether transcription was active before we paused it for echo suppression
+  const wasTranscribingRef = useRef(false);
+
   // ── Voice transcription callbacks ─────────────────────────────────────────
 
   const onPartialTranscript = useCallback((text: string) => {
     if (!text.trim()) return;
 
     // Ignore echo: Web Speech API picks up tutor speaker output (Live audio or TTS)
-    if (isSpeakingRef.current || ttsSpeakingRef.current) return;
+    if (isSpeakingRef.current || speakingCooldownRef.current || ttsSpeakingRef.current) return;
 
     setTranscript((prev) => {
       const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -145,7 +165,7 @@ export default function SessionPage() {
     if (!text.trim()) return;
 
     // Ignore echo: Web Speech API picks up tutor speaker output (Live audio or TTS)
-    if (isSpeakingRef.current || ttsSpeakingRef.current) return;
+    if (isSpeakingRef.current || speakingCooldownRef.current || ttsSpeakingRef.current) return;
 
     const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -197,12 +217,31 @@ export default function SessionPage() {
     }
   }, [voiceActive, transcriptionRunning, stopTranscription]);
 
-  // ── Auto-speak removed ──────────────────────────────────────────────────
-  // Gemini Live API provides audio responses directly via WebRTC/WS.
-  // Browser TTS (SpeechSynthesis) was causing a "two voices" bug: the Live
-  // audio plays while the text API response (from sendTextQuiet) triggers
-  // TTS auto-speak, resulting in overlapping audio. Manual TTS is still
-  // available via the speaker icon on individual transcript messages.
+  // ── Pause transcription while tutor is speaking (anti-echo) ────────────
+  // Completely stop Web Speech API during tutor speech to prevent it from
+  // picking up the tutor's voice and creating an infinite echo loop.
+  // Restart after the cooldown ends (3s after speaking stops).
+  useEffect(() => {
+    if (isSpeaking && transcriptionRunning) {
+      wasTranscribingRef.current = true;
+      stopTranscription();
+    }
+  }, [isSpeaking, transcriptionRunning, stopTranscription]);
+
+  // Restart transcription after speaking + cooldown ends
+  useEffect(() => {
+    if (!isSpeaking && wasTranscribingRef.current && voiceActive) {
+      const timer = setTimeout(() => {
+        if (wasTranscribingRef.current && voiceActive) {
+          wasTranscribingRef.current = false;
+          if (transcriptionSupported) {
+            startTranscription();
+          }
+        }
+      }, 3200); // slightly longer than 3s cooldown to ensure clean restart
+      return () => clearTimeout(timer);
+    }
+  }, [isSpeaking, voiceActive, transcriptionSupported, startTranscription]);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
@@ -429,6 +468,7 @@ export default function SessionPage() {
                <TranscriptPanel
                 entries={transcript}
                 isThinking={isThinking && isActive}
+                isSpeaking={isSpeaking}
                 onSpeak={speakText}
               />
             </div>
