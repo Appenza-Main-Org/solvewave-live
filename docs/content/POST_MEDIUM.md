@@ -11,8 +11,8 @@ The 10-Second Pitch
 
 **See it. Say it. Solve it.**
 
-Try it live: https://faheem-math-frontend-872506223416.us-central1.run.app
-Code: https://github.com/Appenza-Main-Org/faheem-live-competition
+Try it live: https://solvewave-frontend-872506223416.us-central1.run.app
+Code: https://github.com/Appenza-Main-Org/solvewave-live
 
 
 Why I Built This
@@ -130,7 +130,7 @@ Deployment: Cloud Run
 Both frontend and backend deploy to Google Cloud Run with a single command each:
 
 ```
-gcloud run deploy faheem-math-backend \
+gcloud run deploy solvewave-backend \
   --source backend \
   --region us-central1 \
   --allow-unauthenticated
@@ -175,7 +175,7 @@ TURN server on GCE — full WebRTC audio on Cloud Run without fallback.
 
 Try It
 
-Live app: https://faheem-math-frontend-872506223416.us-central1.run.app
+Live app: https://solvewave-frontend-872506223416.us-central1.run.app
 
 Run locally (no API key needed):
 
@@ -188,7 +188,7 @@ GEMINI_STUB=true uvicorn app.main:app --reload
 cd frontend && npm install && npm run dev
 ```
 
-Full source: https://github.com/Appenza-Main-Org/faheem-live-competition
+Full source: https://github.com/Appenza-Main-Org/solvewave-live
 
 
 Built for the Google Gemini Live Agent Challenge.

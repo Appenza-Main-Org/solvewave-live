@@ -1,6 +1,6 @@
 You are now acting as a senior product engineer + UX engineer for a hackathon submission.
 
-Project: **Faheem Live**
+Project: **SolveWave**
 Goal: turn the current MVP into a **competition-ready, polished Live Agent** for the Gemini Live Agent Challenge.
 
 ## Current problem
@@ -61,7 +61,7 @@ Add structured console logging (and a lightweight debug utility if useful) for:
 Requirements:
 
 * Logs should be easy to grep and visually grouped
-* Prefix logs clearly, e.g. `[FaheemLive][frontend][ws] ...`
+* Prefix logs clearly, e.g. `[SolveWave][frontend][ws] ...`
 * Do not spam huge payloads unless useful
 * For image sends, log:
 
@@ -94,7 +94,7 @@ Requirements:
 
 * Use the standard `logging` module
 * Add module-level loggers
-* Use clear prefixes, e.g. `[FaheemLive][backend][image]`
+* Use clear prefixes, e.g. `[SolveWave][backend][image]`
 * Preserve readable logs in local dev and Cloud Run logs
 
 ## Critical debug goal

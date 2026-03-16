@@ -1,6 +1,6 @@
 # Documentation Index
 
-This directory contains all documentation for SolveWave (formerly Faheem Math), organized by purpose.
+This directory contains all documentation for SolveWave, organized by purpose.
 
 ---
 

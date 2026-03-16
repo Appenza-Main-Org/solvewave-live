@@ -12,8 +12,8 @@ _How Gemini's Live API made real-time, voice-first tutoring possible — and wha
 
 **See it. Say it. Solve it.**
 
-Try it live: https://faheem-math-frontend-872506223416.us-central1.run.app
-Code: https://github.com/Appenza-Main-Org/faheem-live-competition
+Try it live: https://solvewave-frontend-872506223416.us-central1.run.app
+Code: https://github.com/Appenza-Main-Org/solvewave-live
 
 ---
 
@@ -135,7 +135,7 @@ The base tutor persona stays consistent. Only the behavioral instructions change
 Both frontend and backend deploy to **Google Cloud Run** with a single command each:
 
 ```bash
-gcloud run deploy faheem-math-backend \
+gcloud run deploy solvewave-backend \
   --source backend \
   --region us-central1 \
   --allow-unauthenticated
@@ -174,7 +174,7 @@ For judges and reviewers who don't have a Gemini API key, there's a **stub mode*
 
 ## Try It
 
-**Live app:** https://faheem-math-frontend-872506223416.us-central1.run.app
+**Live app:** https://solvewave-frontend-872506223416.us-central1.run.app
 
 **Run locally (no API key needed):**
 ```bash
@@ -186,7 +186,7 @@ GEMINI_STUB=true uvicorn app.main:app --reload
 cd frontend && npm install && npm run dev
 ```
 
-**Full source:** https://github.com/Appenza-Main-Org/faheem-live-competition
+**Full source:** https://github.com/Appenza-Main-Org/solvewave-live
 
 ---
 

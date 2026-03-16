@@ -2,7 +2,7 @@
 
 **Total Duration:** ~3:30-4:00 minutes
 **Recording Tool:** Loom / QuickTime / OBS
-**Setup:** Have the live app open at https://faheem-math-frontend-872506223416.us-central1.run.app
+**Setup:** Have the live app open at https://solvewave-frontend-872506223416.us-central1.run.app
 
 ---
 

@@ -204,8 +204,8 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for step-by-step manual deployment instructio
 
 **Proof Points:**
 1. **Live Endpoints:**
-   - Backend: https://faheem-math-backend-872506223416.us-central1.run.app
-   - Frontend: https://faheem-math-frontend-872506223416.us-central1.run.app
+   - Backend: https://solvewave-backend-872506223416.us-central1.run.app
+   - Frontend: https://solvewave-frontend-872506223416.us-central1.run.app
 
 2. **Code References:**
    - `backend/app/services/live_client.py` (lines 1-50, 80-150) — Gemini Live API integration
@@ -214,7 +214,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for step-by-step manual deployment instructio
 
 3. **Health Check:**
    ```bash
-   curl https://faheem-math-backend-872506223416.us-central1.run.app/health
+   curl https://solvewave-backend-872506223416.us-central1.run.app/health
    # Returns: {"status":"ok","model":"gemini-2.5-flash-native-audio-latest","stub":false}
    ```
 

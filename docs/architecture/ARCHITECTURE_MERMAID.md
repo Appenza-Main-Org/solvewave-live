@@ -13,7 +13,7 @@ graph TB
 
     subgraph Browser["Browser — Next.js 14 + Framer Motion (Cloud Run)"]
         subgraph UI["React Components"]
-            LOGO[FaheemLogo]
+            LOGO[SolveWaveLogo]
             MS[ModeSelector<br/>Explain / Quiz / Homework]
             ORB[AmbientOrb<br/>Animated SVG state viz]
             TP[TranscriptPanel<br/>F/U avatars]
@@ -216,10 +216,10 @@ sequenceDiagram
 
 ```mermaid
 graph LR
-    subgraph GCP["Google Cloud Platform<br/>faheem-live-competition"]
+    subgraph GCP["Google Cloud Platform<br/>solvewave-live"]
         subgraph CR1["Cloud Run — us-central1"]
-            FE["faheem-math-frontend<br/>Node.js 18 (standalone)<br/>Port 8080"]
-            BE["faheem-math-backend<br/>Python 3.12 + uvicorn<br/>Port 8080"]
+            FE["solvewave-frontend<br/>Node.js 18 (standalone)<br/>Port 8080"]
+            BE["solvewave-backend<br/>Python 3.12 + uvicorn<br/>Port 8080"]
         end
     end
 
@@ -316,7 +316,7 @@ graph TD
     BG --> GRID[Logic Grid<br/>state-colored dots]
     BG --> GLOW[Background Glow<br/>Framer Motion blur]
 
-    HEADER --> LOGO2[FaheemLogo<br/>SVG icon]
+    HEADER --> LOGO2[SolveWaveLogo<br/>SVG icon]
     HEADER --> BRAND2[Brand Title<br/>+ Status Dot]
     HEADER --> MS2[ModeSelector<br/>desktop]
     HEADER --> TIM[Timer Display<br/>mm:ss]

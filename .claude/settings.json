@@ -2,7 +2,7 @@
   "permissions": {
     "allow": [
       "Bash(git init)",
-      "Bash(git remote add origin https://github.com/Appenza-Main-Org/faheem-live-competition.git)"
+      "Bash(git remote add origin https://github.com/Appenza-Main-Org/solvewave-live.git)"
     ]
   }
 }

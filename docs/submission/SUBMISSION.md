@@ -154,7 +154,7 @@ See [docs/architecture-diagram.png](docs/architecture-diagram.png) for a visual 
 
 ### What to Submit
 - [x] Text description with summary, technologies, data sources, findings (this file)
-- [x] Public code repository with spin-up instructions ([GitHub](https://github.com/Appenza-Main-Org/faheem-live-competition))
+- [x] Public code repository with spin-up instructions ([GitHub](https://github.com/Appenza-Main-Org/solvewave-live))
 - [x] Proof of Google Cloud deployment (see [PROOF_OF_GCP.md](PROOF_OF_GCP.md))
 - [x] Architecture diagram (see [docs/architecture-diagram.png](docs/architecture-diagram.png))
 - [x] Demo video under 4 minutes showing multimodal/agentic features _(add URL after recording)_
@@ -175,16 +175,16 @@ See [docs/architecture-diagram.png](docs/architecture-diagram.png) for a visual 
 
 ## Repository
 
-**GitHub:** https://github.com/Appenza-Main-Org/faheem-live-competition
-**Live Demo:** https://faheem-math-frontend-872506223416.us-central1.run.app
-**Backend API:** https://faheem-math-backend-872506223416.us-central1.run.app
+**GitHub:** https://github.com/Appenza-Main-Org/solvewave-live
+**Live Demo:** https://solvewave-frontend-872506223416.us-central1.run.app
+**Backend API:** https://solvewave-backend-872506223416.us-central1.run.app
 
 ---
 
 ## How to Test (For Judges)
 
 ### Option 1: Use the deployed app (no setup required)
-1. Visit https://faheem-math-frontend-872506223416.us-central1.run.app
+1. Visit https://solvewave-frontend-872506223416.us-central1.run.app
 2. Click "Start session" in the header
 3. Allow microphone access when prompted
 4. Speak a math problem (e.g., "Explain how to solve 2x + 5 = 17")

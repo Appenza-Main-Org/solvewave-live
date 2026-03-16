@@ -4,9 +4,9 @@ This document provides evidence that SolveWave is built using Google Cloud servi
 
 ## Current Deployment
 
-- **GCP Project:** `faheem-live-competition` (Project ID: 872506223416)
-- **Backend Service:** [faheem-math-backend](https://faheem-math-backend-872506223416.us-central1.run.app)
-- **Frontend Service:** [faheem-math-frontend](https://faheem-math-backend-872506223416.us-central1.run.app)
+- **GCP Project:** `solvewave-live` (Project ID: 872506223416)
+- **Backend Service:** [solvewave-backend](https://solvewave-backend-872506223416.us-central1.run.app)
+- **Frontend Service:** [solvewave-frontend](https://solvewave-backend-872506223416.us-central1.run.app)
 - **Region:** `us-central1`
 - **Platform:** Cloud Run (managed)
 
@@ -47,7 +47,7 @@ The application uses Google's Gemini models through the official Google GenAI SD
 
 ```bash
 # Health check - confirms Gemini model and GCP deployment
-curl https://faheem-math-backend-872506223416.us-central1.run.app/health
+curl https://solvewave-backend-872506223416.us-central1.run.app/health
 
 # Expected response:
 # {

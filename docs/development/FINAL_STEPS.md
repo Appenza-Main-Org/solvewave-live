@@ -15,7 +15,7 @@
 - Backend session duration tracking
 
 ✅ **Backend Deployed**
-- URL: https://faheem-math-backend-872506223416.us-central1.run.app
+- URL: https://solvewave-backend-872506223416.us-central1.run.app
 - Status: Running in demo/stub mode (judges can test without API key)
 - Health check: Passing
 
@@ -31,10 +31,10 @@
 
 ✅ **Git Repository**
 - All changes committed and pushed
-- Repository: https://github.com/Appenza-Main-Org/faheem-live-competition
+- Repository: https://github.com/Appenza-Main-Org/solvewave-live
 
 ⏳ **Frontend Deploying**
-- Expected URL: https://faheem-math-frontend-872506223416.us-central1.run.app
+- Expected URL: https://solvewave-frontend-872506223416.us-central1.run.app
 - Status: Building (5-10 minutes)
 
 ---
@@ -48,7 +48,7 @@ Check deployment status:
 cd /Users/mac/Documents/faheem-live-gemini
 
 # Check if frontend is deployed
-curl https://faheem-math-frontend-872506223416.us-central1.run.app
+curl https://solvewave-frontend-872506223416.us-central1.run.app
 ```
 
 If it's not ready yet, wait a few more minutes.
@@ -59,7 +59,7 @@ If it's not ready yet, wait a few more minutes.
 
 Open in browser:
 ```bash
-open https://faheem-math-frontend-872506223416.us-central1.run.app
+open https://solvewave-frontend-872506223416.us-central1.run.app
 ```
 
 **Test Checklist:**
@@ -123,7 +123,7 @@ git push
 **Preparation:**
 1. Read [demo-script.md](demo-script.md) thoroughly
 2. Review [DEMO_CHECKLIST.md](DEMO_CHECKLIST.md)
-3. Have the deployed app open: https://faheem-math-frontend-872506223416.us-central1.run.app
+3. Have the deployed app open: https://solvewave-frontend-872506223416.us-central1.run.app
 4. Prepare a test image (homework photo)
 5. Test the flow once without recording
 
@@ -178,7 +178,7 @@ open -a "TextEdit" SUBMISSION.md
 **Demo Video:** [YouTube URL from Step 4]
 # ↑ Paste the YouTube URL here
 
-**GitHub:** https://github.com/Appenza-Main-Org/faheem-live-competition
+**GitHub:** https://github.com/Appenza-Main-Org/solvewave-live
 # ↑ Already filled in
 ```
 
@@ -201,8 +201,8 @@ git push
    - **Project Name:** SolveWave — Live AI Math Tutor
    - **Tagline:** Real-time, voice-first math tutoring with Gemini Live API
    - **Description:** Copy from [SUBMISSION.md](SUBMISSION.md) (entire file)
-   - **GitHub URL:** https://github.com/Appenza-Main-Org/faheem-live-competition
-   - **Demo URL:** https://faheem-math-frontend-872506223416.us-central1.run.app
+   - **GitHub URL:** https://github.com/Appenza-Main-Org/solvewave-live
+   - **Demo URL:** https://solvewave-frontend-872506223416.us-central1.run.app
    - **Video URL:** [YouTube URL from Step 4]
    - **Category:** Live Agents 🗣️
 
@@ -226,8 +226,8 @@ Before submitting to Devpost, verify:
 - [x] Demo mode works (GEMINI_STUB=true)
 
 ### Deployment
-- [x] Backend deployed: https://faheem-math-backend-872506223416.us-central1.run.app
-- [ ] Frontend deployed: https://faheem-math-frontend-872506223416.us-central1.run.app _(in progress)_
+- [x] Backend deployed: https://solvewave-backend-872506223416.us-central1.run.app
+- [ ] Frontend deployed: https://solvewave-frontend-872506223416.us-central1.run.app _(in progress)_
 - [ ] Tested all features on deployed app
 
 ### Documentation
@@ -256,18 +256,18 @@ Before submitting to Devpost, verify:
 ### Frontend deployment is taking too long
 ```bash
 # Check deployment status
-gcloud run services describe faheem-math-frontend \
+gcloud run services describe solvewave-frontend \
   --region us-central1 \
-  --project faheem-live-competition
+  --project solvewave-live
 
 # If it fails, check logs
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=faheem-math-frontend" \
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=solvewave-frontend" \
   --limit 50 \
-  --project faheem-live-competition
+  --project solvewave-live
 ```
 
 ### Deployed app shows errors
-- Check if backend is running: `curl https://faheem-math-backend-872506223416.us-central1.run.app/health`
+- Check if backend is running: `curl https://solvewave-backend-872506223416.us-central1.run.app/health`
 - Check browser console for WebSocket errors
 - Verify CORS is enabled (it should be with `CORS_ORIGINS=["*"]`)
 
@@ -281,12 +281,12 @@ gcloud logging read "resource.type=cloud_run_revision AND resource.labels.servic
 cd /Users/mac/Documents/faheem-live-gemini
 
 # Deploy backend with your Gemini API key
-gcloud run deploy faheem-math-backend \
+gcloud run deploy solvewave-backend \
   --source backend \
   --region us-central1 \
   --allow-unauthenticated \
   --set-env-vars "GEMINI_API_KEY=YOUR_ACTUAL_KEY,CORS_ORIGINS=[\"*\"]" \
-  --project faheem-live-competition \
+  --project solvewave-live \
   --quiet
 ```
 
@@ -296,9 +296,9 @@ gcloud run deploy faheem-math-backend \
 
 | Resource | URL/Command |
 |----------|-------------|
-| **Frontend (deployed)** | https://faheem-math-frontend-872506223416.us-central1.run.app |
-| **Backend (deployed)** | https://faheem-math-backend-872506223416.us-central1.run.app |
-| **GitHub Repo** | https://github.com/Appenza-Main-Org/faheem-live-competition |
+| **Frontend (deployed)** | https://solvewave-frontend-872506223416.us-central1.run.app |
+| **Backend (deployed)** | https://solvewave-backend-872506223416.us-central1.run.app |
+| **GitHub Repo** | https://github.com/Appenza-Main-Org/solvewave-live |
 | **Challenge Page** | https://geminiliveagentchallenge.devpost.com |
 | **Excalidraw** | https://excalidraw.com |
 | **Local Backend** | `cd backend && uvicorn app.main:app --reload` |

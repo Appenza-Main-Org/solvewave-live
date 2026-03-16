@@ -5,7 +5,7 @@
  * math radical cue, on a deep dark rounded square. Cyan/emerald gradient
  * accent for the wave stroke. Conveys: math + live voice + intelligence.
  */
-export default function FaheemLogo({ size = 32 }: { size?: number }) {
+export default function SolveWaveLogo({ size = 32 }: { size?: number }) {
   return (
     <svg
       width={size}

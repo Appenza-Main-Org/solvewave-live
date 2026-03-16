@@ -1,6 +1,6 @@
 You are now acting as the lead engineer and product finisher for this hackathon project.
 
-Project: **Faheem Math**
+Project: **SolveWave**
 
 Goal:
 Complete this app as a polished, impressive, competition-ready submission for the **Gemini Live Agent Challenge** in the **Live Agents** category.

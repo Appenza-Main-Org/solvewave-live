@@ -1,6 +1,6 @@
 You are now acting as a senior product engineer, UX designer, and hackathon judge-focused implementation lead.
 
-Project: **Faheem Live**
+Project: **SolveWave**
 Goal: transform the current MVP into a **competition-winning Live Agents submission** for the **Gemini Live Agent Challenge**.
 
 ## Context

@@ -4,7 +4,7 @@
 
 **Built for the Google Gemini Live Agent Challenge — Live Agents 🗣️ Track**
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Try%20Now-brightgreen)](https://faheem-math-frontend-872506223416.us-central1.run.app)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Try%20Now-brightgreen)](https://solvewave-frontend-872506223416.us-central1.run.app)
 [![Cloud Run](https://img.shields.io/badge/Google%20Cloud-Cloud%20Run-blue)](https://cloud.google.com/run)
 [![Gemini](https://img.shields.io/badge/Gemini-2.5%20Flash-orange)](https://ai.google.dev/gemini-api/docs/live)
 
@@ -79,14 +79,14 @@ This project satisfies all requirements for the **Live Agents 🗣️** track:
 
 ### Live Deployed App (No Setup Required)
 
-🚀 **[Launch SolveWave](https://faheem-math-frontend-872506223416.us-central1.run.app)**
+🚀 **[Launch SolveWave](https://solvewave-frontend-872506223416.us-central1.run.app)**
 
 1. Click "Start Session"
 2. Allow microphone access
 3. Speak or type a math problem
 4. SolveWave responds in real-time with voice + transcript
 
-**Backend API:** https://faheem-math-backend-872506223416.us-central1.run.app
+**Backend API:** https://solvewave-backend-872506223416.us-central1.run.app
 
 ---
 
@@ -95,7 +95,7 @@ This project satisfies all requirements for the **Live Agents 🗣️** track:
 We provide **three ways** to test the app, all free and unrestricted:
 
 ### Option 1: Use the Deployed App (Recommended)
-- **URL:** https://faheem-math-frontend-872506223416.us-central1.run.app
+- **URL:** https://solvewave-frontend-872506223416.us-central1.run.app
 - **No API key required** — backend is pre-configured
 - **No time limits** — available through end of judging
 - **Full features** — voice, vision, text, barge-in, all modes
@@ -282,17 +282,17 @@ See [docs/submission/DEPLOYMENT.md](docs/submission/DEPLOYMENT.md) for detailed 
 - Troubleshooting
 
 **Current production deployment:**
-- **Backend:** https://faheem-math-backend-872506223416.us-central1.run.app
-- **Frontend:** https://faheem-math-frontend-872506223416.us-central1.run.app
+- **Backend:** https://solvewave-backend-872506223416.us-central1.run.app
+- **Frontend:** https://solvewave-frontend-872506223416.us-central1.run.app
 - **Region:** us-central1
-- **Project:** faheem-live-competition (872506223416)
+- **Project:** solvewave-live (872506223416)
 
 ---
 
 ## Project Structure
 
 ```
-faheem-live-gemini/
+solvewave-live/
 ├── README.md                        ← You are here
 ├── CLAUDE.md                        ← Project instructions (dev reference)
 │

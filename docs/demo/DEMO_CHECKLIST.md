@@ -9,7 +9,7 @@
 
 ### Environment
 - [ ] Browser: Chrome or Edge (best Web Speech API support)
-- [ ] Tab: https://faheem-math-frontend-872506223416.us-central1.run.app (or localhost:3000)
+- [ ] Tab: https://solvewave-frontend-872506223416.us-central1.run.app (or localhost:3000)
 - [ ] Microphone: Working and permissions granted
 - [ ] Camera: Permissions granted (for image capture)
 - [ ] Network: Stable connection

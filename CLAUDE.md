@@ -1,7 +1,7 @@
 # CLAUDE.md
 
 ## Project
-Faheem Math is a real-time math tutoring MVP for the Google Gemini Live Agent Challenge.
+SolveWave is a real-time math tutoring MVP for the Google Gemini Live Agent Challenge.
 Single-subject math tutor with voice, text, and image input. English UI.
 
 ## Stack
@@ -22,7 +22,7 @@ Single-subject math tutor with voice, text, and image input. English UI.
 │   │   └── session/page.tsx    # Main session UI (status strip, transcript, composer)
 │   ├── src/components/
 │   │   ├── AmbientOrb.tsx      # Animated state visualization orb (standalone, not used in session page)
-│   │   ├── FaheemLogo.tsx      # SVG logo (radical sign on emerald gradient)
+│   │   ├── SolveWaveLogo.tsx   # SVG logo (wave pulse on emerald gradient)
 │   │   ├── TranscriptPanel.tsx # Chat transcript (tutor/student, LaTeX)
 │   │   ├── ModeSelector.tsx    # Explain/Quiz/Homework segmented tabs
 │   │   ├── ExamplesPanel.tsx   # Example prompts per mode
@@ -49,7 +49,7 @@ Single-subject math tutor with voice, text, and image input. English UI.
 ```
 
 ## UI Design
-- **Theme:** Obsidian dark (#02040a background) with faheem-emerald (#10B981) accents
+- **Theme:** Obsidian dark (#02040a background) with solvewave-emerald (#10B981) accents
 - **Status Strip:** Compact h-12 inline strip with mini state orb + label (replaced full AmbientOrb)
 - **Transcript Canvas:** Maximized area — minimal padding (px-2/3/4), full height, edge-to-edge
 - **Floating Composer:** Rounded glass-morphism input bar with camera, mic, text, send
@@ -69,12 +69,12 @@ Single-subject math tutor with voice, text, and image input. English UI.
 - Final transcripts always sent to text API for guaranteed text response
 - Camera auto-sends captured images immediately (no staging/upload step)
 - Mode addendums (explain/quiz/homework) injected per-request at runtime
-- Gemini Live config: response_modalities=["AUDIO", "TEXT"], voice="Charon"
+- Gemini Live config: response_modalities=["AUDIO"], voice="Charon"
 
 ## Deployment
-- **GCP Project:** faheem-live-competition (872506223416)
-- **Frontend:** https://faheem-math-frontend-872506223416.us-central1.run.app
-- **Backend:** https://faheem-math-backend-872506223416.us-central1.run.app
+- **GCP Project:** solvewave-live (872506223416)
+- **Frontend:** https://solvewave-frontend-872506223416.us-central1.run.app
+- **Backend:** https://solvewave-backend-872506223416.us-central1.run.app
 - **Current tag:** v0.6.0
 
 ### Deploy commands
@@ -82,7 +82,7 @@ Single-subject math tutor with voice, text, and image input. English UI.
 export PATH="$HOME/google-cloud-sdk/bin:$PATH"
 
 # Backend
-gcloud run deploy faheem-math-backend \
+gcloud run deploy solvewave-backend \
   --source backend \
   --region us-central1 \
   --allow-unauthenticated \
@@ -90,7 +90,7 @@ gcloud run deploy faheem-math-backend \
   --quiet
 
 # Frontend (NEXT_PUBLIC_WS_URL comes from frontend/.env.production — no --set-build-env-vars needed)
-gcloud run deploy faheem-math-frontend \
+gcloud run deploy solvewave-frontend \
   --source frontend \
   --region us-central1 \
   --allow-unauthenticated \

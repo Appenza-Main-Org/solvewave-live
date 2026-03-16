@@ -40,7 +40,7 @@ SolveWave uses **WebRTC for real-time audio transport** (with WebSocket fallback
 |  |  User Interface (React Components)                                   | |
 |  |                                                                       | |
 |  |  +-- Header Bar (h-16) ----------------------------------------+     | |
-|  |  |  FaheemLogo  Brand Title  ModeSelector  Timer  Help  Start  |     | |
+|  |  |  SolveWaveLogo  Brand Title  ModeSelector  Timer  Help  Start  |     | |
 |  |  +-------------------------------------------------------------+     | |
 |  |                                                                       | |
 |  |  +-- Main Layout (flex-row on lg) ----+---+-- Aside (xl only) --+    | |
@@ -374,7 +374,7 @@ RootLayout (layout.tsx)
       +-- Background Glow (Framer Motion, animated blur)
       |
       +-- Header Bar
-      |   +-- FaheemLogo (custom SVG)
+      |   +-- SolveWaveLogo (custom SVG)
       |   +-- Brand Title ("SolveWave")
       |   +-- Status Dot (animated, state-colored)
       |   +-- ModeSelector (segmented: Explain/Quiz/Homework) [desktop]

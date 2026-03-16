@@ -24,8 +24,8 @@ set -euo pipefail
 
 PROJECT_ID="${GCP_PROJECT:-$(gcloud config get-value project 2>/dev/null || echo "")}"
 REGION="${GCP_REGION:-us-central1}"
-BACKEND_SERVICE="faheem-math-backend"
-FRONTEND_SERVICE="faheem-math-frontend"
+BACKEND_SERVICE="solvewave-backend"
+FRONTEND_SERVICE="solvewave-frontend"
 
 # ── Colors for output ─────────────────────────────────────────────────────────
 

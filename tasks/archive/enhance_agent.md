@@ -1,13 +1,13 @@
 You are now doing a focused product narrowing pass for this project.
 
-Project: **Faheem Live**
+Project: **SolveWave**
 
 New product direction:
 This app is no longer a broad tutor or general learning assistant.
 
 It must now become a **single-subject, competition-focused Live Agent**:
 
-**Faheem Live = a real-time, vision-enabled math tutor for homework help**
+**SolveWave = a real-time, vision-enabled math tutor for homework help**
 
 ## Goal
 

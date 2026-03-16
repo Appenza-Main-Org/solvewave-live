@@ -3,7 +3,7 @@
     Automated deployment to Google Cloud Run (PowerShell)
 
 .DESCRIPTION
-    Deploys Faheem Math backend and frontend to Google Cloud Run.
+    Deploys SolveWave backend and frontend to Google Cloud Run.
 
 .PARAMETER Target
     Deployment target: "backend", "frontend", or "all" (default)
@@ -46,8 +46,8 @@ $ProjectId = if ($env:GCP_PROJECT) { $env:GCP_PROJECT } else {
     (gcloud config get-value project 2>$null)
 }
 $Region = if ($env:GCP_REGION) { $env:GCP_REGION } else { "us-central1" }
-$BackendService = "faheem-math-backend"
-$FrontendService = "faheem-math-frontend"
+$BackendService = "solvewave-backend"
+$FrontendService = "solvewave-frontend"
 
 # ── Helper Functions ──────────────────────────────────────────────────────────
 

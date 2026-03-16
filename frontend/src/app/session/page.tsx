@@ -20,7 +20,7 @@ import TranscriptPanel from "@/components/TranscriptPanel";
 import ModeSelector, { type TutorMode } from "@/components/ModeSelector";
 import ExamplesPanel from "@/components/ExamplesPanel";
 import HelpPanel from "@/components/HelpPanel";
-import FaheemLogo from "@/components/FaheemLogo";
+import SolveWaveLogo from "@/components/SolveWaveLogo";
 import { log } from "@/lib/log";
 
 // ── Live state indicator ────────────────────────────────────────────────────
@@ -336,7 +336,7 @@ export default function SessionPage() {
       <header className="flex-none h-16 border-b border-white/5 bg-obsidian-950/40 backdrop-blur-2xl z-20 px-4 sm:px-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="p-2 rounded-2xl bg-sw-emerald/10 border border-sw-emerald/20 shadow-[0_0_15px_rgba(16,185,129,0.1)] transition-transform hover:scale-105">
-            <FaheemLogo size={28} />
+            <SolveWaveLogo size={28} />
           </div>
           <div className="hidden sm:block">
             <h1 className="text-sm font-bold tracking-[0.1em] uppercase text-obsidian-100">

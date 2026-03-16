@@ -81,7 +81,7 @@ gcloud services enable run.googleapis.com cloudbuild.googleapis.com
 cd backend
 
 # Deploy to Cloud Run (Cloud Build will automatically containerize)
-gcloud run deploy faheem-math-backend \
+gcloud run deploy solvewave-backend \
   --source . \
   --platform managed \
   --region us-central1 \
@@ -96,7 +96,7 @@ gcloud run deploy faheem-math-backend \
 - `GEMINI_TEXT_MODEL` (optional) — Default: `gemini-2.5-flash`
 - `GEMINI_STUB` (optional) — Set to `true` for demo mode (no API calls)
 
-**Note the backend URL:** `https://faheem-math-backend-HASH-uc.a.run.app`
+**Note the backend URL:** `https://solvewave-backend-HASH-uc.a.run.app`
 
 ### 3. Deploy Frontend
 
@@ -104,29 +104,29 @@ gcloud run deploy faheem-math-backend \
 cd frontend
 
 # Deploy to Cloud Run with backend WebSocket URL
-gcloud run deploy faheem-math-frontend \
+gcloud run deploy solvewave-frontend \
   --source . \
   --platform managed \
   --region us-central1 \
   --allow-unauthenticated \
-  --set-build-env-vars "NEXT_PUBLIC_WS_URL=wss://faheem-math-backend-HASH-uc.a.run.app/ws/session"
+  --set-build-env-vars "NEXT_PUBLIC_WS_URL=wss://solvewave-backend-HASH-uc.a.run.app/ws/session"
 ```
 
 Replace `HASH` with your actual backend service hash from step 2.
 
-**Note the frontend URL:** `https://faheem-math-frontend-HASH-uc.a.run.app`
+**Note the frontend URL:** `https://solvewave-frontend-HASH-uc.a.run.app`
 
 ### 4. Verify Deployment
 
 ```bash
 # Backend health check
-curl https://faheem-math-backend-HASH-uc.a.run.app/health
+curl https://solvewave-backend-HASH-uc.a.run.app/health
 
 # Expected response:
 # {"status":"ok","model":"gemini-2.5-flash-native-audio-latest","stub":false}
 
 # Frontend
-open https://faheem-math-frontend-HASH-uc.a.run.app
+open https://solvewave-frontend-HASH-uc.a.run.app
 ```
 
 ---
@@ -160,7 +160,7 @@ open https://faheem-math-frontend-HASH-uc.a.run.app
 
 ```bash
 # Re-deploy with new code or env vars
-gcloud run deploy faheem-math-backend \
+gcloud run deploy solvewave-backend \
   --source backend \
   --region us-central1 \
   --update-env-vars "GEMINI_API_KEY=NEW_KEY"
@@ -170,7 +170,7 @@ gcloud run deploy faheem-math-backend \
 
 ```bash
 # Re-deploy with new code
-gcloud run deploy faheem-math-frontend \
+gcloud run deploy solvewave-frontend \
   --source frontend \
   --region us-central1
 ```
@@ -183,10 +183,10 @@ gcloud run deploy faheem-math-frontend \
 
 ```bash
 # List revisions
-gcloud run revisions list --service faheem-math-backend --region us-central1
+gcloud run revisions list --service solvewave-backend --region us-central1
 
 # Rollback to a previous revision
-gcloud run services update-traffic faheem-math-backend \
+gcloud run services update-traffic solvewave-backend \
   --region us-central1 \
   --to-revisions REVISION_NAME=100
 ```
@@ -199,10 +199,10 @@ gcloud run services update-traffic faheem-math-backend \
 
 ```bash
 # Backend logs (live tail)
-gcloud run logs tail faheem-math-backend --region us-central1
+gcloud run logs tail solvewave-backend --region us-central1
 
 # Frontend logs
-gcloud run logs tail faheem-math-frontend --region us-central1
+gcloud run logs tail solvewave-frontend --region us-central1
 ```
 
 ### View in Cloud Console
@@ -246,7 +246,7 @@ gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
 
 - Ensure backend `CORS_ORIGINS` includes the frontend origin
 - Verify frontend `NEXT_PUBLIC_WS_URL` uses `wss://` (not `ws://`)
-- Check backend logs: `gcloud run logs tail faheem-math-backend`
+- Check backend logs: `gcloud run logs tail solvewave-backend`
 
 ### Frontend shows "WebSocket error"
 
@@ -260,7 +260,7 @@ gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
 To deploy a version that works without an API key:
 
 ```bash
-gcloud run deploy faheem-math-backend \
+gcloud run deploy solvewave-backend \
   --source backend \
   --region us-central1 \
   --allow-unauthenticated \
@@ -273,9 +273,9 @@ This enables judges to test the full UX flow without needing their own Gemini AP
 
 ## Current Production Deployment
 
-- **GCP Project:** `faheem-live-competition` (872506223416)
-- **Backend:** https://faheem-math-backend-872506223416.us-central1.run.app
-- **Frontend:** https://faheem-math-frontend-872506223416.us-central1.run.app
+- **GCP Project:** `solvewave-live` (872506223416)
+- **Backend:** https://solvewave-backend-872506223416.us-central1.run.app
+- **Frontend:** https://solvewave-frontend-872506223416.us-central1.run.app
 - **Region:** `us-central1`
 - **Tag:** v0.2.0
 

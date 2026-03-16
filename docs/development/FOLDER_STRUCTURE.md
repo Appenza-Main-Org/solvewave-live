@@ -1,7 +1,7 @@
 # Folder Structure — SolveWave
 
 ```
-faheem-live-gemini/
+solvewave/
 ├── 📄 README.md                    # Main project documentation (submission-ready)
 ├── 📄 SUBMISSION.md                # Devpost submission template
 ├── 📄 DEPLOYMENT.md                # Cloud Run deployment guide
