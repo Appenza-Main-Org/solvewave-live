@@ -160,14 +160,36 @@ async def handle_session(websocket: WebSocket) -> None:
         mode = str(data.get("mode", "explain"))
         effective_prompt = agent.system_prompt + _MODE_ADDENDUM.get(mode, "")
 
-        # ── Voice text path (inject into Live session) ────────────────────────
+        # ── Voice text path (standard text API fallback) ───────────────────────
+        # When voice is active, Web Speech API captures the student's speech as
+        # text. We route it through the standard text API (not Gemini Live session
+        # injection, which is unreliable when send_realtime_input audio is active).
+        # The response is sent as a regular "message" and the frontend speaks it
+        # via browser TTS.
         if msg_type == "voice_text":
             student_text = str(data.get("text", ""))
+            if not student_text.strip():
+                return
             logger.info(
-                "%s[route] voice_text path | session=%s text=%r",
+                "%s[route] voice_text → text API | session=%s text=%r",
                 _LOG, config.session_id, student_text[:120],
             )
-            await voice_text_queue.put(student_text)
+
+            reply = await client.generate_text_reply(
+                user_text=student_text,
+                system_prompt=effective_prompt,
+                history=chat_history,
+            )
+            logger.info(
+                "%s[voice_text] Gemini replied | reply_len=%d", _LOG, len(reply)
+            )
+
+            chat_history.append({"role": "user", "text": student_text})
+            chat_history.append({"role": "model", "text": reply})
+
+            await websocket.send_json(
+                {"type": "message", "role": "tutor", "text": reply}
+            )
             return
 
         # ── Text path ──────────────────────────────────────────────────────────

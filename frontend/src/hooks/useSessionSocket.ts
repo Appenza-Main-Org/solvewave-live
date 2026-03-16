@@ -54,6 +54,9 @@ export function useSessionSocket() {
   const [speakingStartTime, setSpeakingStartTime] = useState(0);
   const [errorDetail, setErrorDetail]     = useState<string | null>(null);
   const [isInterrupted, setIsInterrupted] = useState(false);
+  // Text message that should be spoken aloud (set when voice is active and
+  // a text API response arrives — e.g. from voice_text follow-up questions)
+  const [pendingSpeak, setPendingSpeak] = useState<string | null>(null);
 
   // WebSocket
   const wsRef = useRef<WebSocket | null>(null);
@@ -375,6 +378,8 @@ export function useSessionSocket() {
           log.ws("Tutor message received", { text: msg.text.slice(0, 80) });
           setIsThinking(false);
           append({ role: "tutor", text: msg.text, timestamp: timestamp() });
+          // Queue text for browser TTS when voice is active (voice_text fallback)
+          setPendingSpeak(msg.text);
         } else if (msg.type === "recap" && msg.data) {
           log.session("Recap received", msg.data);
           setIsThinking(false);
@@ -844,6 +849,9 @@ export function useSessionSocket() {
     sendVoiceText,
     sendImage,
     sendImageQuiet,
+    /** Text message queued for browser TTS (voice_text fallback) */
+    pendingSpeak,
+    setPendingSpeak,
     startVoice,
     stopVoice,
     /** Manually trigger barge-in (stop tutor + unmute mic) */

@@ -97,6 +97,8 @@ export default function SessionPage() {
     sendTextQuiet,
     sendVoiceText,
     sendImage,
+    pendingSpeak,
+    setPendingSpeak,
     startVoice,
     stopVoice,
     triggerInterrupt,
@@ -255,6 +257,20 @@ export default function SessionPage() {
       return () => clearTimeout(timer);
     }
   }, [isSpeaking, voiceActive, transcriptionSupported, startTranscription]);
+
+  // ── Auto-speak text API responses when voice is active ──────────────────
+  // When voice_text follow-ups go through the standard text API, the response
+  // arrives as a regular "message" (no audio). Speak it via browser TTS so
+  // the student hears the answer.
+  useEffect(() => {
+    if (pendingSpeak && voiceActive && !isSpeaking) {
+      speakText(pendingSpeak);
+      setPendingSpeak(null);
+    } else if (pendingSpeak && !voiceActive) {
+      // Not in voice mode — clear without speaking
+      setPendingSpeak(null);
+    }
+  }, [pendingSpeak, voiceActive, isSpeaking, speakText, setPendingSpeak]);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
