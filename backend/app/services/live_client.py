@@ -20,6 +20,35 @@ from app.models.schemas import SessionConfig
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
+import re
+
+def _clean_thinking_text(raw: str) -> str:
+    """
+    Strip Gemini's internal thinking headers from part.text.
+
+    Native audio models often wrap their response in a bold header like:
+      **Calculating the Answer**\n\nThe answer is 4.
+    We strip the header and return just the useful content.
+    """
+    text = raw.strip()
+    if not text:
+        return ""
+    # Remove bold markdown headers at the start (e.g. **Thinking About...**)
+    text = re.sub(r'^\*\*[^*]+\*\*\s*\n*', '', text).strip()
+    # Remove lines that are just headers
+    lines = text.split('\n')
+    cleaned = []
+    for line in lines:
+        stripped = line.strip()
+        # Skip empty lines at the start
+        if not cleaned and not stripped:
+            continue
+        # Skip standalone bold headers
+        if re.match(r'^\*\*[^*]+\*\*$', stripped):
+            continue
+        cleaned.append(line)
+    return '\n'.join(cleaned).strip()
+
 
 class LiveClient:
     """
@@ -253,23 +282,44 @@ class LiveClient:
                             await send_audio(part.inline_data.data)
                             audio_chunks_sent += 1
                         elif part.text:
-                            # part.text in model_turn = model's internal thinking/reasoning.
-                            # NOT the spoken audio transcription. Log it but don't show to user.
-                            logger.debug(
-                                "[SolveWave][backend][voice] thinking text (not shown): %r [%s]",
-                                part.text[:120], config.session_id,
-                            )
+                            # part.text contains the model's response. For native
+                            # audio models it often includes a "thinking header"
+                            # (e.g. **Solving the Problem**\n\n...) followed by
+                            # the actual answer. Clean it up for the transcript.
+                            t = _clean_thinking_text(part.text)
+                            if t:
+                                logger.info(
+                                    "[SolveWave][backend][voice] part.text: %r [%s]",
+                                    t[:120], config.session_id,
+                                )
+                                turn_text_parts.append(t)
+                                if send_control:
+                                    try:
+                                        await send_control({
+                                            "type": "transcript_delta",
+                                            "text": t,
+                                        })
+                                    except Exception:
+                                        pass
 
                 # ── Audio transcription (what the tutor actually said) ────────
-                # output_audio_transcription is the text of the SPOKEN audio,
-                # separate from the model's internal thinking in part.text.
-                if response.server_content:
-                    transcription = getattr(response.server_content, "output_audio_transcription", None)
+                # Check multiple locations — the SDK may place transcription
+                # at different levels depending on model/SDK version.
+                for _src_obj, _src_name in [
+                    (getattr(response, "server_content", None), "server_content"),
+                    (response, "response"),
+                ]:
+                    if _src_obj is None:
+                        continue
+                    transcription = getattr(_src_obj, "output_audio_transcription", None)
                     if transcription:
-                        # transcription can be a string or an object with .text
                         t_text = transcription if isinstance(transcription, str) else getattr(transcription, "text", str(transcription))
                         if t_text and t_text.strip():
                             turn_text_parts.append(t_text)
+                            logger.info(
+                                "[SolveWave][backend][voice] transcription(%s): %r [%s]",
+                                _src_name, t_text[:120], config.session_id,
+                            )
                             if send_control:
                                 try:
                                     await send_control({
@@ -278,6 +328,22 @@ class LiveClient:
                                     })
                                 except Exception:
                                     pass
+                            break  # Don't double-send
+
+                # Debug: log response structure on first audio response
+                if audio_chunks_sent == 1 and response.server_content:
+                    _sc = response.server_content
+                    _attrs = {a: type(getattr(_sc, a, None)).__name__ for a in dir(_sc) if not a.startswith('_')}
+                    logger.info(
+                        "[SolveWave][backend][voice] server_content fields: %s [%s]",
+                        _attrs, config.session_id,
+                    )
+                    # Also check response-level attributes
+                    _resp_attrs = {a: type(getattr(response, a, None)).__name__ for a in dir(response) if not a.startswith('_')}
+                    logger.info(
+                        "[SolveWave][backend][voice] response fields: %s [%s]",
+                        _resp_attrs, config.session_id,
+                    )
 
                 # ── Turn complete ──────────────────────────────────────────────
                 if (
@@ -289,7 +355,10 @@ class LiveClient:
                         audio_chunks_sent, len(turn_text_parts), config.session_id,
                     )
                     # Notify frontend that tutor audio has ended
-                    if audio_chunks_sent > 0 and send_control:
+                    # Always send speaking_end (even if audio_chunks_sent == 0)
+                    # so the frontend properly resets mic/discard state after
+                    # client-side interrupts where chunks were discarded.
+                    if send_control:
                         try:
                             await send_control({"type": "status", "value": "speaking_end"})
                         except Exception:
