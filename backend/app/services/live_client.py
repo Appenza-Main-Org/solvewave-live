@@ -179,7 +179,8 @@ class LiveClient:
                             role="user",
                             parts=[types.Part(text=text)],
                         )
-                    ]
+                    ],
+                    turn_complete=True,  # Signal user turn is done → Gemini will respond
                 )
         except asyncio.CancelledError:
             raise
