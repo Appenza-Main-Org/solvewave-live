@@ -83,6 +83,10 @@ export function useSessionSocket() {
   const micMuteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Count consecutive high-energy frames for barge-in detection
   const bargeInFrameCountRef = useRef(0);
+  // When true, discard all incoming audio chunks (after interrupt, until backend
+  // acknowledges via speaking_end or interrupted status). Without this, the backend
+  // keeps sending audio chunks after interrupt which get played on the new AudioContext.
+  const discardAudioRef = useRef(false);
 
   // ── Derived live state for the UI indicator ────────────────────────────────
 
@@ -117,6 +121,10 @@ export function useSessionSocket() {
   // ── Audio playback ─────────────────────────────────────────────────────────
 
   const scheduleAudioChunk = useCallback((pcmBytes: ArrayBuffer) => {
+    // After interrupt, discard remaining audio chunks from the backend
+    // until it acknowledges (speaking_end or interrupted status).
+    if (discardAudioRef.current) return;
+
     const ctx = playbackCtxRef.current;
     if (!ctx) return;
 
@@ -181,6 +189,7 @@ export function useSessionSocket() {
       micMuteTimerRef.current = null;
     }
     micMutedRef.current = false;
+    discardAudioRef.current = false;
 
     setVoiceActive(false);
     setIsSpeaking(false);
@@ -259,6 +268,8 @@ export function useSessionSocket() {
         if (msg.type === "status" && msg.value === "speaking_start") {
           setIsSpeaking(true);
           setSpeakingStartTime(Date.now());
+          // Reset discard flag — new speech turn, accept audio
+          discardAudioRef.current = false;
           // Mute mic to Gemini to prevent echo (tutor audio → speaker → mic → Gemini)
           micMutedRef.current = true;
           bargeInFrameCountRef.current = 0;
@@ -283,6 +294,7 @@ export function useSessionSocket() {
           speakingTimerRef.current = setTimeout(() => {
             setIsSpeaking(false);
             setSpeakingStartTime(0);
+            discardAudioRef.current = false; // Accept audio for next turn
             // Unmute mic now that tutor is done speaking
             micMutedRef.current = false;
             bargeInFrameCountRef.current = 0;
@@ -388,6 +400,7 @@ export function useSessionSocket() {
           append({ role: "tutor", text: `✓ ${summary}`, timestamp: timestamp() });
         } else if (msg.type === "status" && msg.value === "interrupted") {
           log.voice("Barge-in: tutor interrupted by student");
+          discardAudioRef.current = false; // Backend acknowledged — accept audio again
           setIsSpeaking(false);
           setSpeakingStartTime(0);
           if (speakingTimerRef.current) {
@@ -526,6 +539,7 @@ export function useSessionSocket() {
           if (bargeInFrameCountRef.current >= BARGE_IN_FRAMES_REQUIRED) {
             // User is speaking loudly over the tutor → trigger barge-in!
             log.voice(`Barge-in detected! RMS=${rms.toFixed(3)} frames=${bargeInFrameCountRef.current}`);
+            discardAudioRef.current = true;
             micMutedRef.current = false;
             bargeInFrameCountRef.current = 0;
             // Stop tutor playback immediately
@@ -642,6 +656,8 @@ export function useSessionSocket() {
   const triggerInterrupt = useCallback(() => {
     if (!isSpeaking) return;
     log.voice("Manual barge-in triggered by user");
+    // Discard remaining audio chunks from the backend
+    discardAudioRef.current = true;
     // Unmute mic so Gemini hears the user
     micMutedRef.current = false;
     bargeInFrameCountRef.current = 0;

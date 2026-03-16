@@ -195,16 +195,12 @@ export default function SessionPage() {
     });
 
     // Route the final transcript to the appropriate API:
-    // - Voice active: inject text into the Gemini Live session (voice_text).
-    //   This ensures the question reaches Gemini even if mic audio is unclear,
-    //   and the response comes back through the Live API's audio path (no duplication).
+    // - Voice active: display only! Gemini Live handles speech recognition via
+    //   the audio stream. Sending text would cause echo (Web Speech API picks up
+    //   tutor audio from speaker) and voice changes (text API → browser TTS).
     // - Voice off: send to the standard text API for a text-only response.
-    if (isActiveRef.current) {
-      if (voiceActiveRef.current) {
-        sendVoiceTextRef.current(text, modeRef.current);
-      } else {
-        sendTextQuietRef.current(text, modeRef.current);
-      }
+    if (isActiveRef.current && !voiceActiveRef.current) {
+      sendTextQuietRef.current(text, modeRef.current);
     }
   }, [setTranscript]);
 
@@ -258,19 +254,16 @@ export default function SessionPage() {
     }
   }, [isSpeaking, voiceActive, transcriptionSupported, startTranscription]);
 
-  // ── Auto-speak text API responses when voice is active ──────────────────
-  // When voice_text follow-ups go through the standard text API, the response
-  // arrives as a regular "message" (no audio). Speak it via browser TTS so
-  // the student hears the answer.
+  // ── Clear pending speak — voice mode uses Gemini Live audio (Kore voice),
+  // not browser TTS. Only speak via TTS when voice is OFF.
   useEffect(() => {
-    if (pendingSpeak && voiceActive && !isSpeaking) {
-      speakText(pendingSpeak);
-      setPendingSpeak(null);
-    } else if (pendingSpeak && !voiceActive) {
-      // Not in voice mode — clear without speaking
+    if (pendingSpeak) {
+      if (!voiceActive) {
+        // Text-only mode: no auto-speak (user can tap the speaker icon)
+      }
       setPendingSpeak(null);
     }
-  }, [pendingSpeak, voiceActive, isSpeaking, speakText, setPendingSpeak]);
+  }, [pendingSpeak, voiceActive, setPendingSpeak]);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
