@@ -197,34 +197,12 @@ export default function SessionPage() {
     }
   }, [voiceActive, transcriptionRunning, stopTranscription]);
 
-  // ── Auto-speak new tutor messages when voice is active ──────────────────
-  // Gemini Live sends audio directly (auto-plays via scheduleAudioChunk).
-  // Browser TTS serves as a fallback — delayed slightly to let Live audio
-  // arrive first. If Live audio is already playing (isSpeaking), skip TTS.
-  const prevTranscriptLenRef = useRef(0);
-  const autoSpeakTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (!voiceActive) {
-      prevTranscriptLenRef.current = transcript.length;
-      return;
-    }
-    if (transcript.length > prevTranscriptLenRef.current) {
-      for (let i = prevTranscriptLenRef.current; i < transcript.length; i++) {
-        const entry = transcript[i];
-        if (entry.role === "tutor" && !entry.partial) {
-          // Delay TTS slightly — if Gemini Live audio arrives first, skip TTS
-          if (autoSpeakTimerRef.current) clearTimeout(autoSpeakTimerRef.current);
-          const textToSpeak = entry.text;
-          autoSpeakTimerRef.current = setTimeout(() => {
-            if (!isSpeakingRef.current) {
-              speakText(textToSpeak);
-            }
-          }, 800); // 800ms grace period for Live audio
-        }
-      }
-    }
-    prevTranscriptLenRef.current = transcript.length;
-  }, [transcript, voiceActive, speakText]);
+  // ── Auto-speak removed ──────────────────────────────────────────────────
+  // Gemini Live API provides audio responses directly via WebRTC/WS.
+  // Browser TTS (SpeechSynthesis) was causing a "two voices" bug: the Live
+  // audio plays while the text API response (from sendTextQuiet) triggers
+  // TTS auto-speak, resulting in overlapping audio. Manual TTS is still
+  // available via the speaker icon on individual transcript messages.
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
@@ -274,7 +252,6 @@ export default function SessionPage() {
       // Cancel any pending TTS and stop voice
       if ("speechSynthesis" in window) speechSynthesis.cancel();
       ttsSpeakingRef.current = false;
-      if (autoSpeakTimerRef.current) clearTimeout(autoSpeakTimerRef.current);
       stopVoice();
       if (transcriptionRunning) {
         stopTranscription();
