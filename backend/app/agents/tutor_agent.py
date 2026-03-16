@@ -167,7 +167,7 @@ class TutorAgent:
         ]
 
         return types.LiveConnectConfig(
-            response_modalities=["AUDIO", "TEXT"],
+            response_modalities=["AUDIO"],
             system_instruction=types.Content(
                 parts=[types.Part(text=self._system_prompt)],
                 role="user",

@@ -55,15 +55,16 @@ export default function SessionPage() {
   const [helpPanelOpen, setHelpPanelOpen] = useState(false);
   const fileInputRef      = useRef<HTMLInputElement>(null);
   const autoVoiceRef      = useRef(false);   // set true when Start auto-triggers voice
-  const partialTranscriptIndexRef = useRef<number | null>(null);
 
   // ── TTS: Read tutor messages aloud ──────────────────────────────────────────
+  const ttsSpeakingRef = useRef(false);  // tracks browser TTS state for echo suppression
   const speakText = useCallback((text: string) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
     speechSynthesis.cancel();
     const clean = text
       .replace(/\$\$[\s\S]+?\$\$/g, " math expression ")
       .replace(/\$[^\$\n]+?\$/g, " math expression ")
+      .replace(/`[^`]+?`/g, " math expression ")
       .replace(/\*\*(.*?)\*\*/g, "$1")
       .replace(/[✓⚠📷🎓]/g, "")
       .replace(/\n/g, ". ")
@@ -72,6 +73,9 @@ export default function SessionPage() {
     const utt = new SpeechSynthesisUtterance(clean);
     utt.rate = 1.05;
     utt.lang = "en-US";
+    utt.onstart = () => { ttsSpeakingRef.current = true; };
+    utt.onend = () => { ttsSpeakingRef.current = false; };
+    utt.onerror = () => { ttsSpeakingRef.current = false; };
     speechSynthesis.speak(utt);
   }, []);
 
@@ -116,76 +120,54 @@ export default function SessionPage() {
   const onPartialTranscript = useCallback((text: string) => {
     if (!text.trim()) return;
 
-    // Ignore echo: Web Speech API picks up tutor speaker output
-    if (isSpeakingRef.current) return;
+    // Ignore echo: Web Speech API picks up tutor speaker output (Live audio or TTS)
+    if (isSpeakingRef.current || ttsSpeakingRef.current) return;
 
     setTranscript((prev) => {
       const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-      // If we already have a partial transcript, update it in place
-      if (partialTranscriptIndexRef.current !== null) {
+      // Find the last entry — if it's a partial student entry, update in-place
+      // This is more robust than tracking by index (which goes stale when tutor
+      // messages are appended between partials).
+      const lastIdx = prev.length - 1;
+      if (lastIdx >= 0 && prev[lastIdx].role === "student" && prev[lastIdx].partial) {
         const updated = [...prev];
-        updated[partialTranscriptIndexRef.current] = {
-          role: "student",
-          text,
-          timestamp: now,
-          partial: true,
-        };
+        updated[lastIdx] = { role: "student", text, timestamp: now, partial: true };
         return updated;
       }
 
       // Otherwise, add a new partial transcript row
-      const newEntry = {
-        role: "student" as const,
-        text,
-        timestamp: now,
-        partial: true,
-      };
-      partialTranscriptIndexRef.current = prev.length;
-      return [...prev, newEntry];
+      return [...prev, { role: "student" as const, text, timestamp: now, partial: true }];
     });
   }, [setTranscript]);
 
   const onFinalTranscript = useCallback((text: string) => {
     if (!text.trim()) return;
 
-    // Ignore echo: Web Speech API picks up tutor speaker output
-    if (isSpeakingRef.current) return;
+    // Ignore echo: Web Speech API picks up tutor speaker output (Live audio or TTS)
+    if (isSpeakingRef.current || ttsSpeakingRef.current) return;
 
     const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
     setTranscript((prev) => {
-      const entry = {
-        role: "student" as const,
-        text,
-        timestamp: now,
-        partial: false,
-      };
+      const entry = { role: "student" as const, text, timestamp: now, partial: false };
 
-      // If we have a tracked partial transcript index, finalize it
-      if (partialTranscriptIndexRef.current !== null) {
-        const updated = [...prev];
-        updated[partialTranscriptIndexRef.current] = entry;
-        partialTranscriptIndexRef.current = null;
-        return updated;
-      }
-
-      // Fallback: scan backward for the last partial student entry and replace it
+      // Find and replace the last partial student entry (if any)
       for (let i = prev.length - 1; i >= 0; i--) {
         if (prev[i].role === "student" && prev[i].partial) {
           const updated = [...prev];
           updated[i] = entry;
-          partialTranscriptIndexRef.current = null;
           return updated;
         }
+        // Don't scan past tutor messages — if we hit one, just append
+        if (prev[i].role === "tutor") break;
       }
 
       return [...prev, entry];
     });
 
-    // Always send transcribed text to the backend text API.
-    // Gemini Live also receives audio directly, so the user may get
-    // both a voice reply (from Live) and a text reply (from text API).
+    // Always send transcribed text to the text API for a guaranteed text response.
+    // Gemini Live handles audio separately (AUDIO-only modality, no text from Live).
     if (isActiveRef.current) {
       sendTextQuietRef.current(text, modeRef.current);
     }
@@ -212,9 +194,37 @@ export default function SessionPage() {
   useEffect(() => {
     if (!voiceActive && transcriptionRunning) {
       stopTranscription();
-      partialTranscriptIndexRef.current = null;
     }
   }, [voiceActive, transcriptionRunning, stopTranscription]);
+
+  // ── Auto-speak new tutor messages when voice is active ──────────────────
+  // Gemini Live sends audio directly (auto-plays via scheduleAudioChunk).
+  // Browser TTS serves as a fallback — delayed slightly to let Live audio
+  // arrive first. If Live audio is already playing (isSpeaking), skip TTS.
+  const prevTranscriptLenRef = useRef(0);
+  const autoSpeakTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!voiceActive) {
+      prevTranscriptLenRef.current = transcript.length;
+      return;
+    }
+    if (transcript.length > prevTranscriptLenRef.current) {
+      for (let i = prevTranscriptLenRef.current; i < transcript.length; i++) {
+        const entry = transcript[i];
+        if (entry.role === "tutor" && !entry.partial) {
+          // Delay TTS slightly — if Gemini Live audio arrives first, skip TTS
+          if (autoSpeakTimerRef.current) clearTimeout(autoSpeakTimerRef.current);
+          const textToSpeak = entry.text;
+          autoSpeakTimerRef.current = setTimeout(() => {
+            if (!isSpeakingRef.current) {
+              speakText(textToSpeak);
+            }
+          }, 800); // 800ms grace period for Live audio
+        }
+      }
+    }
+    prevTranscriptLenRef.current = transcript.length;
+  }, [transcript, voiceActive, speakText]);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
@@ -261,13 +271,19 @@ export default function SessionPage() {
   function handleVoiceToggle() {
     if (voiceActive) {
       log.voice("User stopped voice");
+      // Cancel any pending TTS and stop voice
+      if ("speechSynthesis" in window) speechSynthesis.cancel();
+      ttsSpeakingRef.current = false;
+      if (autoSpeakTimerRef.current) clearTimeout(autoSpeakTimerRef.current);
       stopVoice();
       if (transcriptionRunning) {
         stopTranscription();
       }
     } else {
       log.voice("User started voice");
+      // Cancel any playing TTS before starting mic (prevents echo)
       if ("speechSynthesis" in window) speechSynthesis.cancel();
+      ttsSpeakingRef.current = false;
       startVoice();
       if (transcriptionSupported) {
         startTranscription();
