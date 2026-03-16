@@ -50,22 +50,21 @@ _LOG = "[SolveWave][backend]"
 # Keeps the base system_prompt.md clean and allows runtime mode switching.
 _MODE_ADDENDUM: dict[str, str] = {
     "explain": (
-        "\n\n[Mode: Explain — break down the math concept step by step with a worked example. "
-        "Number each step. Keep it concise: one concept at a time, under 5 lines unless a "
-        "worked solution requires more. Use plain language for the reasoning.]"
+        "\n\n[Mode: Explain — explain ONE step at a time. Say 2-3 sentences max, then pause "
+        "and ask 'Does that make sense?' or 'Ready for the next step?'. "
+        "Do NOT give all steps at once. Keep it voice-friendly and conversational. "
+        "Never narrate your thinking — jump straight into the math.]"
     ),
     "quiz": (
-        "\n\n[Mode: Quiz — ask ONE focused math question appropriate to the topic discussed. "
-        "Wait for the student's answer before continuing. Give targeted feedback: "
-        "confirm correct steps, pinpoint the exact error if wrong. "
-        "Use check_answer and generate_next_hint tools. Keep the pace brisk.]"
+        "\n\n[Mode: Quiz — ask ONE short math question. Wait for the answer. "
+        "Give brief feedback (1-2 sentences). Keep the pace brisk and voice-friendly. "
+        "Use check_answer and generate_next_hint tools.]"
     ),
     "homework": (
-        "\n\n[Mode: Homework — the student needs help solving their actual math problem. "
-        "Show all steps clearly with numbered work. Explain the reasoning at each step. "
-        "If they give a partial attempt, identify where it diverged. "
-        "Use hints to guide, but do not withhold the solution if the student is stuck. "
-        "Treat every image as a math problem unless clearly otherwise.]"
+        "\n\n[Mode: Homework — guide the student through ONE step at a time. "
+        "Say 2-3 sentences, then pause and check understanding. "
+        "Do NOT dump the full solution — walk through it step by step in conversation. "
+        "Never narrate your thinking — jump straight into the math.]"
     ),
 }
 

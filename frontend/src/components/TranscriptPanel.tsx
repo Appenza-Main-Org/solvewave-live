@@ -31,6 +31,7 @@ interface TranscriptPanelProps {
   isSpeaking?: boolean;
   speakingStartTime?: number; // Date.now() when speaking started
   onSpeak?: (text: string) => void;
+  onInterrupt?: () => void; // Called when user taps on speaking message to interrupt
 }
 
 // ── Inline content processor (math + bold) ───────────────────────────────────
@@ -252,16 +253,27 @@ export default function TranscriptPanel({
   isSpeaking = false,
   speakingStartTime = 0,
   onSpeak,
+  onInterrupt,
 }: TranscriptPanelProps) {
   // Find the index of the last streaming/speaking tutor message
   const lastTutorIdx = isSpeaking
     ? entries.reduce((acc, e, i) => (e.role === "tutor" ? i : acc), -1)
     : -1;
   const bottomRef = useRef<HTMLDivElement>(null);
+  const speakingRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Auto-scroll to bottom when new entries arrive
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [entries, isThinking]);
+
+  // Auto-scroll to the currently speaking message during speech
+  useEffect(() => {
+    if (isSpeaking && speakingRef.current) {
+      speakingRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [isSpeaking, entries]);
 
   if (entries.length === 0 && !isThinking) {
     return (
@@ -307,6 +319,7 @@ export default function TranscriptPanel({
           return (
             <motion.div
               key={i}
+              ref={isCurrentlySpeaking ? speakingRef : undefined}
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
@@ -336,14 +349,16 @@ export default function TranscriptPanel({
                       {e.role === "tutor" ? "SolveWave" : "Student"}
                     </span>
                     {isActiveStreaming && (
-                      <motion.span
+                      <motion.button
                         animate={{ opacity: [0.6, 1, 0.6] }}
                         transition={{ duration: 1.5, repeat: Infinity }}
-                        className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-sw-emerald bg-sw-emerald/10 px-3 py-1 rounded-lg border border-sw-emerald/20 shadow-[0_0_10px_rgba(16,185,129,0.15)]"
+                        onClick={(ev) => { ev.stopPropagation(); onInterrupt?.(); }}
+                        className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-sw-emerald bg-sw-emerald/10 px-3 py-1 rounded-lg border border-sw-emerald/20 shadow-[0_0_10px_rgba(16,185,129,0.15)] hover:bg-orange-500/20 hover:text-orange-400 hover:border-orange-400/30 transition-colors cursor-pointer"
+                        title="Tap to interrupt"
                       >
                         <Volume2 size={11} />
-                        Speaking
-                      </motion.span>
+                        Speaking — tap to interrupt
+                      </motion.button>
                     )}
                     {isRecap && (
                       <span className="text-[9px] font-black uppercase tracking-widest text-sw-emerald bg-sw-emerald/10 px-3 py-1 rounded border border-sw-emerald/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]">

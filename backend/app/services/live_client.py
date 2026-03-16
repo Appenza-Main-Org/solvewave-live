@@ -253,14 +253,28 @@ class LiveClient:
                             await send_audio(part.inline_data.data)
                             audio_chunks_sent += 1
                         elif part.text:
-                            turn_text_parts.append(part.text)
-                            # Stream each text chunk to the frontend immediately
-                            # so the transcript builds up in real-time (like ChatGPT Voice).
+                            # part.text in model_turn = model's internal thinking/reasoning.
+                            # NOT the spoken audio transcription. Log it but don't show to user.
+                            logger.debug(
+                                "[SolveWave][backend][voice] thinking text (not shown): %r [%s]",
+                                part.text[:120], config.session_id,
+                            )
+
+                # ── Audio transcription (what the tutor actually said) ────────
+                # output_audio_transcription is the text of the SPOKEN audio,
+                # separate from the model's internal thinking in part.text.
+                if response.server_content:
+                    transcription = getattr(response.server_content, "output_audio_transcription", None)
+                    if transcription:
+                        # transcription can be a string or an object with .text
+                        t_text = transcription if isinstance(transcription, str) else getattr(transcription, "text", str(transcription))
+                        if t_text and t_text.strip():
+                            turn_text_parts.append(t_text)
                             if send_control:
                                 try:
                                     await send_control({
                                         "type": "transcript_delta",
-                                        "text": part.text,
+                                        "text": t_text,
                                     })
                                 except Exception:
                                     pass

@@ -500,6 +500,7 @@ export default function SessionPage() {
                 isSpeaking={isSpeaking}
                 speakingStartTime={speakingStartTime}
                 onSpeak={speakText}
+                onInterrupt={triggerInterrupt}
               />
             </div>
           </div>
