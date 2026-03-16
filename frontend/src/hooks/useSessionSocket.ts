@@ -86,40 +86,10 @@ export function useSessionSocket() {
     return "idle";
   }, [status, isThinking, lastSentType, voiceActive, isSpeaking, isInterrupted]);
 
-  // ── Auto-mute mic while tutor is speaking (echo prevention) ────────────────
-  // The tutor's audio plays through the speakers. Without muting, the mic picks
-  // up this audio and sends it back to Gemini Live, which interprets it as new
-  // student input — creating an infinite echo loop. We mute the mic at the
-  // transport level (WebRTC track / WS binary) while speaking + a cooldown.
-  useEffect(() => {
-    if (isSpeaking) {
-      // Mute mic immediately when tutor starts speaking
-      if (micMuteTimerRef.current) {
-        clearTimeout(micMuteTimerRef.current);
-        micMuteTimerRef.current = null;
-      }
-      micMutedRef.current = true;
-      if (usingWebRTCRef.current) {
-        webrtcRef.current.setMicEnabled(false);
-      }
-      log.voice("Mic auto-muted (tutor speaking — echo prevention)");
-    } else if (micMutedRef.current && voiceActive) {
-      // Unmute after cooldown (audio buffers need time to drain from speakers)
-      micMuteTimerRef.current = setTimeout(() => {
-        micMutedRef.current = false;
-        if (usingWebRTCRef.current) {
-          webrtcRef.current.setMicEnabled(true);
-        }
-        log.voice("Mic auto-unmuted (tutor finished + cooldown)");
-        micMuteTimerRef.current = null;
-      }, 1500); // 1.5s cooldown for speaker audio to drain
-    }
-    return () => {
-      if (micMuteTimerRef.current) {
-        clearTimeout(micMuteTimerRef.current);
-      }
-    };
-  }, [isSpeaking, voiceActive]);
+  // NOTE: Mic stays LIVE while tutor speaks — this preserves barge-in.
+  // Gemini Live API has built-in interruption detection on the audio stream.
+  // Echo prevention is handled at the Web Speech API layer (page.tsx) to
+  // prevent the sendTextQuiet dual-path from creating duplicate responses.
 
   // ── Transcript helper ──────────────────────────────────────────────────────
 
@@ -428,8 +398,6 @@ export function useSessionSocket() {
 
     processor.onaudioprocess = (event) => {
       if (ws.readyState !== WebSocket.OPEN) return;
-      // Don't send mic audio while tutor is speaking (echo prevention)
-      if (micMutedRef.current) return;
 
       const input = event.inputBuffer.getChannelData(0);
 

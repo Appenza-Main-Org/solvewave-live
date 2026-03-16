@@ -186,9 +186,12 @@ export default function SessionPage() {
       return [...prev, entry];
     });
 
-    // Always send transcribed text to the text API for a guaranteed text response.
-    // Gemini Live handles audio separately (AUDIO-only modality, no text from Live).
-    if (isActiveRef.current) {
+    // Only send to text API when voice is NOT active.
+    // When voice IS active, Gemini Live API already handles the response via
+    // audio. Sending to text API too creates duplicate responses and echo loops
+    // (the text API response appears in transcript, which can trigger further
+    // voice interactions). The Live API's audio-only response is sufficient.
+    if (isActiveRef.current && !voiceActiveRef.current) {
       sendTextQuietRef.current(text, modeRef.current);
     }
   }, [setTranscript]);
