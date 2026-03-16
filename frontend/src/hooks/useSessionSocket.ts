@@ -726,6 +726,23 @@ export function useSessionSocket() {
     []
   );
 
+  /** Send text into the active Gemini Live session (not the standard text API).
+   *  Used when voice is active so the question reaches Gemini via its Live session,
+   *  avoiding duplicate responses from the text API while ensuring the message is heard. */
+  const sendVoiceText = useCallback(
+    (text: string, mode: TutorMode = "explain") => {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        log.error("sendVoiceText called but WS not open");
+        return;
+      }
+
+      log.ws("sendVoiceText (Live session text injection)", { text: text.slice(0, 80), mode });
+      ws.send(JSON.stringify({ type: "voice_text", text, mode }));
+    },
+    []
+  );
+
   // ── Send image ─────────────────────────────────────────────────────────────
 
   const sendImage = useCallback(
@@ -824,6 +841,7 @@ export function useSessionSocket() {
     stopSession,
     sendText,
     sendTextQuiet,
+    sendVoiceText,
     sendImage,
     sendImageQuiet,
     startVoice,

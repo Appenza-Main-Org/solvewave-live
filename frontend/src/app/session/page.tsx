@@ -95,6 +95,7 @@ export default function SessionPage() {
     stopSession,
     sendText,
     sendTextQuiet,
+    sendVoiceText,
     sendImage,
     startVoice,
     stopVoice,
@@ -109,6 +110,8 @@ export default function SessionPage() {
   // Refs to avoid stale closures in voice transcription callbacks
   const sendTextQuietRef = useRef(sendTextQuiet);
   sendTextQuietRef.current = sendTextQuiet;
+  const sendVoiceTextRef = useRef(sendVoiceText);
+  sendVoiceTextRef.current = sendVoiceText;
   const modeRef = useRef(mode);
   modeRef.current = mode;
   const isActiveRef = useRef(isActive);
@@ -189,13 +192,17 @@ export default function SessionPage() {
       return [...prev, entry];
     });
 
-    // Only send to text API when voice is NOT active.
-    // When voice IS active, Gemini Live API already handles the response via
-    // audio. Sending to text API too creates duplicate responses and echo loops
-    // (the text API response appears in transcript, which can trigger further
-    // voice interactions). The Live API's audio-only response is sufficient.
-    if (isActiveRef.current && !voiceActiveRef.current) {
-      sendTextQuietRef.current(text, modeRef.current);
+    // Route the final transcript to the appropriate API:
+    // - Voice active: inject text into the Gemini Live session (voice_text).
+    //   This ensures the question reaches Gemini even if mic audio is unclear,
+    //   and the response comes back through the Live API's audio path (no duplication).
+    // - Voice off: send to the standard text API for a text-only response.
+    if (isActiveRef.current) {
+      if (voiceActiveRef.current) {
+        sendVoiceTextRef.current(text, modeRef.current);
+      } else {
+        sendTextQuietRef.current(text, modeRef.current);
+      }
     }
   }, [setTranscript]);
 

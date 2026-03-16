@@ -105,6 +105,10 @@ async def handle_session(websocket: WebSocket) -> None:
     # Audio queue: receive_loop puts chunks here; LiveClient drains it
     audio_queue: asyncio.Queue[bytes | None] = asyncio.Queue()
 
+    # Text queue: voice_text messages are injected into the Gemini Live session
+    # (used when Web Speech API captures the student's speech as text)
+    voice_text_queue: asyncio.Queue[str | None] = asyncio.Queue()
+
     agent = TutorAgent()
     client = LiveClient(agent=agent)
 
@@ -155,6 +159,16 @@ async def handle_session(websocket: WebSocket) -> None:
         msg_type = data.get("type")
         mode = str(data.get("mode", "explain"))
         effective_prompt = agent.system_prompt + _MODE_ADDENDUM.get(mode, "")
+
+        # ── Voice text path (inject into Live session) ────────────────────────
+        if msg_type == "voice_text":
+            student_text = str(data.get("text", ""))
+            logger.info(
+                "%s[route] voice_text path | session=%s text=%r",
+                _LOG, config.session_id, student_text[:120],
+            )
+            await voice_text_queue.put(student_text)
+            return
 
         # ── Text path ──────────────────────────────────────────────────────────
         if msg_type == "text":
@@ -306,6 +320,7 @@ async def handle_session(websocket: WebSocket) -> None:
                             _LOG, config.session_id, audio_chunks_received, use_webrtc,
                         )
                         await audio_queue.put(None)
+                        await voice_text_queue.put(None)
                         break
                     else:
                         # Parse JSON to check for signaling vs app messages
@@ -322,22 +337,28 @@ async def handle_session(websocket: WebSocket) -> None:
                 "%s[ws] client disconnected | session=%s", _LOG, config.session_id
             )
             await audio_queue.put(None)
+            await voice_text_queue.put(None)
         except Exception as exc:
             logger.error(
                 "%s[ws] receive loop error | session=%s: %s\n%s",
                 _LOG, config.session_id, exc, traceback.format_exc(),
             )
             await audio_queue.put(None)
+            await voice_text_queue.put(None)
 
     # ── Run both tasks concurrently ────────────────────────────────────────────
 
     receive_task = asyncio.create_task(receive_loop())
+    async def receive_voice_text() -> str | None:
+        return await voice_text_queue.get()
+
     bridge_task = asyncio.create_task(
         client.run(
             receive_audio=receive_audio,
             send_audio=send_audio,
             config=config,
             send_control=send_control,
+            receive_voice_text=receive_voice_text,
         )
     )
 

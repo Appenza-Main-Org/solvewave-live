@@ -42,6 +42,7 @@ class LiveClient:
         send_audio,      # async (bytes) -> None
         config: SessionConfig,
         send_control=None,  # async (dict) -> None  (optional JSON control frames)
+        receive_voice_text=None,  # async () -> str | None  (text from Web Speech API)
     ) -> None:
         """
         Open a Gemini Live session and bridge audio bidirectionally until the
@@ -49,11 +50,16 @@ class LiveClient:
 
         send_control, if provided, is called with a JSON-serialisable dict to
         push control frames (e.g. interruption notifications) to the browser.
+
+        receive_voice_text, if provided, yields text strings captured by the
+        browser's Web Speech API. These are injected into the Live session as
+        text content, ensuring the student's question reaches Gemini even if
+        the audio quality is poor.
         """
         if self._stub:
             await self._run_stub(receive_audio, send_audio, config)
         else:
-            await self._run_live(receive_audio, send_audio, config, send_control)
+            await self._run_live(receive_audio, send_audio, config, send_control, receive_voice_text)
 
     # ── Live mode ──────────────────────────────────────────────────────────────
 
@@ -63,6 +69,7 @@ class LiveClient:
         send_audio,
         config: SessionConfig,
         send_control=None,
+        receive_voice_text=None,
     ) -> None:
         """Real Gemini Live connection. Imports google.genai lazily."""
         from google import genai
@@ -90,14 +97,30 @@ class LiveClient:
                     self._downstream(session, send_audio, config, send_control)
                 )
 
+                # Voice text injector: feeds Web Speech API transcripts into
+                # the Live session as text content, ensuring the student's
+                # questions reach Gemini even when audio quality is poor.
+                text_injector_task = None
+                if receive_voice_text:
+                    text_injector_task = asyncio.create_task(
+                        self._text_injector(session, receive_voice_text, config)
+                    )
+
                 # Upstream exits when browser sends None (disconnect or END).
                 # Cancel downstream so the async-for loop on session.receive() stops.
                 await upstream_task
                 downstream_task.cancel()
+                if text_injector_task:
+                    text_injector_task.cancel()
                 try:
                     await downstream_task
                 except asyncio.CancelledError:
                     pass
+                if text_injector_task:
+                    try:
+                        await text_injector_task
+                    except asyncio.CancelledError:
+                        pass
 
             logger.info("Gemini Live session closed [%s]", config.session_id)
         except Exception as exc:
@@ -126,6 +149,45 @@ class LiveClient:
                 )
         except Exception as exc:
             logger.error("Upstream error [%s]: %s", config.session_id, exc)
+
+    async def _text_injector(self, session, receive_voice_text, config: SessionConfig) -> None:
+        """
+        Drain the voice_text queue and inject each message into the Gemini Live
+        session as text content. This runs alongside the audio upstream so that
+        Web Speech API transcriptions supplement the raw audio signal.
+
+        Gemini Live session.send_client_content() adds the text as a user turn
+        to the conversation, prompting Gemini to respond with audio.
+        """
+        from google.genai import types
+
+        try:
+            while True:
+                text = await receive_voice_text()
+                if text is None:
+                    logger.info("Voice text stream ended [%s]", config.session_id)
+                    break
+                if not text.strip():
+                    continue
+                logger.info(
+                    "[SolveWave][backend][voice_text] injecting into Live session: %r [%s]",
+                    text[:120], config.session_id,
+                )
+                await session.send_client_content(
+                    turns=[
+                        types.Content(
+                            role="user",
+                            parts=[types.Part(text=text)],
+                        )
+                    ]
+                )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.error(
+                "[SolveWave][backend][voice_text] error [%s]: %s",
+                config.session_id, exc,
+            )
 
     async def _downstream(self, session, send_audio, config: SessionConfig, send_control=None) -> None:
         """Forward Gemini responses (audio + text + tool calls) to the browser."""
