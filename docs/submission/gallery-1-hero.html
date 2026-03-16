@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1200px; height: 800px;
+    background: #02040a;
+    font-family: 'Cairo', sans-serif;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+  }
+  .grid {
+    position: absolute; inset: 0; opacity: 0.03;
+    background-image: radial-gradient(#10B981 1px, transparent 1px);
+    background-size: 30px 30px;
+  }
+  .glow { position: absolute; top: -15%; left: -10%; width: 50%; height: 50%; background: radial-gradient(circle, rgba(16,185,129,0.1), transparent 70%); border-radius: 50%; }
+  .glow2 { position: absolute; bottom: -15%; right: -5%; width: 45%; height: 45%; background: radial-gradient(circle, rgba(6,182,212,0.06), transparent 70%); border-radius: 50%; }
+
+  /* Sidebar */
+  .sidebar {
+    width: 280px; height: 100%;
+    background: rgba(255,255,255,0.02);
+    border-right: 1px solid rgba(16,185,129,0.1);
+    padding: 24px 20px;
+    display: flex; flex-direction: column; gap: 20px;
+    position: relative; z-index: 10;
+  }
+  .logo-row { display: flex; align-items: center; gap: 12px; }
+  .logo-box {
+    width: 40px; height: 40px; border-radius: 11px;
+    background: linear-gradient(135deg, rgba(16,185,129,0.15), rgba(6,182,212,0.1));
+    border: 1px solid rgba(16,185,129,0.25);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo-text { font-size: 22px; font-weight: 900; color: #f0f4f8; }
+  .logo-text span { color: #10B981; }
+  .mode-tabs { display: flex; gap: 6px; }
+  .mode-tab {
+    flex: 1; padding: 10px 0; border-radius: 10px; text-align: center;
+    font-size: 13px; font-weight: 700; color: rgba(148,163,184,0.6);
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
+  }
+  .mode-tab.active {
+    background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.3);
+    color: #10B981;
+  }
+  .example-label { font-size: 11px; color: rgba(148,163,184,0.5); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; }
+  .example-card {
+    padding: 14px 16px; border-radius: 12px;
+    background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
+    font-size: 14px; color: rgba(148,163,184,0.7); line-height: 1.5;
+  }
+
+  /* Main area */
+  .main {
+    flex: 1; display: flex; flex-direction: column;
+    position: relative; z-index: 10;
+  }
+
+  /* Status strip */
+  .status-strip {
+    height: 48px; display: flex; align-items: center; gap: 12px;
+    padding: 0 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .orb {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: #10B981;
+    box-shadow: 0 0 12px rgba(16,185,129,0.6);
+  }
+  .status-label { font-size: 13px; color: #10B981; font-weight: 600; }
+  .timer { font-size: 12px; color: rgba(148,163,184,0.4); margin-left: auto; font-variant-numeric: tabular-nums; }
+
+  /* Transcript */
+  .transcript { flex: 1; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; overflow: hidden; }
+  .msg { max-width: 75%; display: flex; flex-direction: column; gap: 4px; }
+  .msg.tutor { align-self: flex-start; }
+  .msg.student { align-self: flex-end; }
+  .msg-bubble {
+    padding: 14px 18px; border-radius: 16px;
+    font-size: 15px; line-height: 1.6; color: #e2e8f0;
+  }
+  .msg.tutor .msg-bubble {
+    background: rgba(16,185,129,0.08);
+    border: 1px solid rgba(16,185,129,0.15);
+    border-bottom-left-radius: 4px;
+  }
+  .msg.student .msg-bubble {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-bottom-right-radius: 4px;
+  }
+  .msg-label { font-size: 11px; color: rgba(148,163,184,0.4); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .msg.student .msg-label { text-align: right; }
+  .speaking-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; color: #10B981; font-weight: 600;
+  }
+  .speaking-dot { width: 6px; height: 6px; border-radius: 50%; background: #10B981; }
+  .highlight { background: rgba(16,185,129,0.2); border-radius: 3px; padding: 0 2px; }
+
+  /* Composer */
+  .composer-wrap { padding: 16px 24px 24px; }
+  .composer {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px; border-radius: 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(20px);
+  }
+  .composer-btn {
+    width: 40px; height: 40px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    border: none; cursor: pointer;
+  }
+  .cam-btn { background: rgba(255,255,255,0.06); }
+  .mic-btn { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3) !important; }
+  .mic-btn svg { color: #ef4444; }
+  .send-btn { background: rgba(16,185,129,0.15); }
+  .composer-input {
+    flex: 1; background: none; border: none; outline: none;
+    font-size: 15px; color: rgba(148,163,184,0.5);
+    font-family: 'Cairo', sans-serif;
+  }
+</style>
+</head>
+<body>
+  <div class="grid"></div>
+  <div class="glow"></div>
+  <div class="glow2"></div>
+
+  <div class="sidebar">
+    <div class="logo-row">
+      <div class="logo-box">
+        <svg width="24" height="24" viewBox="0 0 40 40" fill="none"><defs><linearGradient id="sw" x1="6" y1="20" x2="34" y2="20" gradientUnits="userSpaceOnUse"><stop stop-color="#06b6d4"/><stop offset=".5" stop-color="#10B981"/><stop offset="1" stop-color="#06b6d4"/></linearGradient></defs><path d="M8 24C12 24 13 14 20 14C27 14 28 26 32 26" stroke="url(#sw)" stroke-width="3.5" stroke-linecap="round" fill="none"/><circle cx="33" cy="26" r="2.5" fill="#10B981"/></svg>
+      </div>
+      <div class="logo-text">Solve<span>Wave</span></div>
+    </div>
+    <div class="mode-tabs">
+      <div class="mode-tab active">Explain</div>
+      <div class="mode-tab">Quiz</div>
+      <div class="mode-tab">Homework</div>
+    </div>
+    <div class="example-label">Try asking</div>
+    <div class="example-card">How do I solve quadratic equations?</div>
+    <div class="example-card">What's the derivative of sin(x)?</div>
+    <div class="example-card">Explain the Pythagorean theorem</div>
+  </div>
+
+  <div class="main">
+    <div class="status-strip">
+      <div class="orb"></div>
+      <div class="status-label">Speaking</div>
+      <div class="timer">02:34</div>
+    </div>
+    <div class="transcript">
+      <div class="msg student">
+        <div class="msg-label">You</div>
+        <div class="msg-bubble">How do I solve x squared plus 5x plus 6 equals zero?</div>
+      </div>
+      <div class="msg tutor">
+        <div class="msg-label">SolveWave Tutor &nbsp;<span class="speaking-badge"><span class="speaking-dot"></span> Speaking</span></div>
+        <div class="msg-bubble">
+          Great question! Let's factor this step by step.<br><br>
+          We need two numbers that <span class="highlight">multiply to 6</span> and <span class="highlight">add up to 5</span>.<br><br>
+          Think about it — what two numbers give you 6 when multiplied?
+        </div>
+      </div>
+      <div class="msg student">
+        <div class="msg-label">You</div>
+        <div class="msg-bubble">2 and 3!</div>
+      </div>
+      <div class="msg tutor">
+        <div class="msg-label">SolveWave Tutor</div>
+        <div class="msg-bubble">
+          Exactly! So we can write it as (x + 2)(x + 3) = 0. That means x = -2 or x = -3. Nice work!
+        </div>
+      </div>
+    </div>
+    <div class="composer-wrap">
+      <div class="composer">
+        <div class="composer-btn cam-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(148,163,184,0.5)" stroke-width="2"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        </div>
+        <input class="composer-input" value="Type or tap mic to ask..." readonly>
+        <div class="composer-btn mic-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </div>
+        <div class="composer-btn send-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

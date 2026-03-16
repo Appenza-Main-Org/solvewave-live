@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1200px; height: 800px;
+    background: #02040a;
+    font-family: 'Cairo', sans-serif;
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  .grid { position: absolute; inset: 0; opacity: 0.03; background-image: radial-gradient(#10B981 1px, transparent 1px); background-size: 30px 30px; }
+  .glow { position: absolute; top: 10%; left: 20%; width: 60%; height: 50%; background: radial-gradient(circle, rgba(16,185,129,0.06), transparent 70%); border-radius: 50%; }
+
+  .content { position: relative; z-index: 10; display: flex; flex-direction: column; align-items: center; gap: 40px; width: 1000px; }
+
+  .section-label { font-size: 14px; color: rgba(16,185,129,0.6); font-weight: 700; text-transform: uppercase; letter-spacing: 0.2em; }
+  h1 { font-size: 36px; font-weight: 900; color: #f0f4f8; }
+  h1 span { color: #10B981; }
+
+  .arch-diagram { display: flex; align-items: center; gap: 24px; width: 100%; }
+
+  .arch-box {
+    padding: 24px 20px; border-radius: 16px;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    text-align: center; flex: 1;
+  }
+  .arch-box.browser {
+    background: rgba(6,182,212,0.06); border: 1px solid rgba(6,182,212,0.2);
+  }
+  .arch-box.backend {
+    background: rgba(168,85,247,0.06); border: 1px solid rgba(168,85,247,0.2);
+  }
+  .arch-box.gemini {
+    background: rgba(66,133,244,0.06); border: 1px solid rgba(66,133,244,0.2);
+  }
+  .arch-title { font-size: 16px; font-weight: 700; color: #e2e8f0; }
+  .arch-sub { font-size: 12px; color: rgba(148,163,184,0.5); line-height: 1.5; }
+  .arch-icon {
+    width: 48px; height: 48px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 4px;
+  }
+  .arch-icon.b { background: rgba(6,182,212,0.15); }
+  .arch-icon.s { background: rgba(168,85,247,0.15); }
+  .arch-icon.g { background: rgba(66,133,244,0.15); }
+
+  .arch-arrow {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    color: rgba(148,163,184,0.3); flex-shrink: 0;
+  }
+  .arrow-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; white-space: nowrap; }
+  .arrow-line { font-size: 24px; }
+
+  .arch-items { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 4px; }
+  .arch-item {
+    padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600;
+    background: rgba(255,255,255,0.05); color: rgba(148,163,184,0.6);
+  }
+
+  .flow-steps {
+    display: flex; gap: 16px; width: 100%;
+  }
+  .flow-step {
+    flex: 1; padding: 20px; border-radius: 14px;
+    background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
+    display: flex; gap: 14px; align-items: flex-start;
+  }
+  .step-num {
+    width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+    background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.25);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 900; color: #10B981;
+  }
+  .step-text { font-size: 13px; color: rgba(148,163,184,0.6); line-height: 1.5; }
+  .step-title { font-size: 14px; font-weight: 700; color: #e2e8f0; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+  <div class="grid"></div>
+  <div class="glow"></div>
+  <div class="content">
+    <div class="section-label">Architecture</div>
+    <h1>How <span>SolveWave</span> Works</h1>
+
+    <div class="arch-diagram">
+      <div class="arch-box browser">
+        <div class="arch-icon b">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        </div>
+        <div class="arch-title">Browser</div>
+        <div class="arch-sub">Next.js 14 + TypeScript</div>
+        <div class="arch-items">
+          <div class="arch-item">WebRTC Audio</div>
+          <div class="arch-item">Web Speech API</div>
+          <div class="arch-item">Camera Input</div>
+          <div class="arch-item">KaTeX Rendering</div>
+        </div>
+      </div>
+
+      <div class="arch-arrow">
+        <div class="arrow-label">WebRTC + WS</div>
+        <div class="arrow-line">&#10231;</div>
+        <div class="arrow-label">Opus Audio</div>
+      </div>
+
+      <div class="arch-box backend">
+        <div class="arch-icon s">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+        </div>
+        <div class="arch-title">FastAPI Server</div>
+        <div class="arch-sub">Python + Cloud Run</div>
+        <div class="arch-items">
+          <div class="arch-item">WebSocket Manager</div>
+          <div class="arch-item">aiortc (WebRTC)</div>
+          <div class="arch-item">PCM Conversion</div>
+          <div class="arch-item">Tool Execution</div>
+        </div>
+      </div>
+
+      <div class="arch-arrow">
+        <div class="arrow-label">Live API</div>
+        <div class="arrow-line">&#10231;</div>
+        <div class="arrow-label">PCM Streaming</div>
+      </div>
+
+      <div class="arch-box gemini">
+        <div class="arch-icon g">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4285F4" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </div>
+        <div class="arch-title">Gemini 2.5 Flash</div>
+        <div class="arch-sub">Live API + Vision</div>
+        <div class="arch-items">
+          <div class="arch-item">Native Audio I/O</div>
+          <div class="arch-item">Kore Voice</div>
+          <div class="arch-item">Image Analysis</div>
+          <div class="arch-item">Math Tools</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-steps">
+      <div class="flow-step">
+        <div class="step-num">1</div>
+        <div>
+          <div class="step-title">Student Speaks</div>
+          <div class="step-text">Mic audio captured via WebRTC, streamed as Opus to backend</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">2</div>
+        <div>
+          <div class="step-title">Gemini Processes</div>
+          <div class="step-text">Backend decodes to 16kHz PCM, streams to Gemini Live API</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">3</div>
+        <div>
+          <div class="step-title">Tutor Responds</div>
+          <div class="step-text">Gemini generates audio + transcript, streamed back in real time</div>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num">4</div>
+        <div>
+          <div class="step-title">Interrupt Anytime</div>
+          <div class="step-text">Energy-based barge-in detects speech, stops playback instantly</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
