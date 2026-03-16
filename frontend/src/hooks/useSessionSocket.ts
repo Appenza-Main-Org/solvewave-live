@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { TranscriptEntry } from "@/components/TranscriptPanel";
 import type { TutorMode } from "@/components/ModeSelector";
@@ -64,6 +64,11 @@ export function useSessionSocket() {
   const nextPlayTimeRef  = useRef<number>(0);
   const speakingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Mic mute flag: set true while tutor is speaking to prevent echo loop.
+  // Checked by both WebRTC (setMicEnabled) and WS fallback (onaudioprocess).
+  const micMutedRef = useRef(false);
+  const micMuteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // ── Derived live state for the UI indicator ────────────────────────────────
 
   const interruptedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -80,6 +85,41 @@ export function useSessionSocket() {
     }
     return "idle";
   }, [status, isThinking, lastSentType, voiceActive, isSpeaking, isInterrupted]);
+
+  // ── Auto-mute mic while tutor is speaking (echo prevention) ────────────────
+  // The tutor's audio plays through the speakers. Without muting, the mic picks
+  // up this audio and sends it back to Gemini Live, which interprets it as new
+  // student input — creating an infinite echo loop. We mute the mic at the
+  // transport level (WebRTC track / WS binary) while speaking + a cooldown.
+  useEffect(() => {
+    if (isSpeaking) {
+      // Mute mic immediately when tutor starts speaking
+      if (micMuteTimerRef.current) {
+        clearTimeout(micMuteTimerRef.current);
+        micMuteTimerRef.current = null;
+      }
+      micMutedRef.current = true;
+      if (usingWebRTCRef.current) {
+        webrtcRef.current.setMicEnabled(false);
+      }
+      log.voice("Mic auto-muted (tutor speaking — echo prevention)");
+    } else if (micMutedRef.current && voiceActive) {
+      // Unmute after cooldown (audio buffers need time to drain from speakers)
+      micMuteTimerRef.current = setTimeout(() => {
+        micMutedRef.current = false;
+        if (usingWebRTCRef.current) {
+          webrtcRef.current.setMicEnabled(true);
+        }
+        log.voice("Mic auto-unmuted (tutor finished + cooldown)");
+        micMuteTimerRef.current = null;
+      }, 1500); // 1.5s cooldown for speaker audio to drain
+    }
+    return () => {
+      if (micMuteTimerRef.current) {
+        clearTimeout(micMuteTimerRef.current);
+      }
+    };
+  }, [isSpeaking, voiceActive]);
 
   // ── Transcript helper ──────────────────────────────────────────────────────
 
@@ -150,6 +190,11 @@ export function useSessionSocket() {
       clearTimeout(interruptedTimerRef.current);
       interruptedTimerRef.current = null;
     }
+    if (micMuteTimerRef.current) {
+      clearTimeout(micMuteTimerRef.current);
+      micMuteTimerRef.current = null;
+    }
+    micMutedRef.current = false;
 
     setVoiceActive(false);
     setIsSpeaking(false);
@@ -383,6 +428,8 @@ export function useSessionSocket() {
 
     processor.onaudioprocess = (event) => {
       if (ws.readyState !== WebSocket.OPEN) return;
+      // Don't send mic audio while tutor is speaking (echo prevention)
+      if (micMutedRef.current) return;
 
       const input = event.inputBuffer.getChannelData(0);
 
