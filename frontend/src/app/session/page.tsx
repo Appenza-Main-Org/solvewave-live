@@ -12,6 +12,7 @@ import {
   Timer,
   Zap,
   LayoutDashboard,
+  Hand,
 } from "lucide-react";
 import { useSessionSocket, LiveState } from "@/hooks/useSessionSocket";
 import { useVoiceTranscription } from "@/hooks/useVoiceTranscription";
@@ -97,6 +98,7 @@ export default function SessionPage() {
     sendImage,
     startVoice,
     stopVoice,
+    triggerInterrupt,
   } = useSessionSocket();
 
   const { formatted: timerDisplay } = useSessionTimer(isActive);
@@ -548,6 +550,20 @@ export default function SessionPage() {
               >
                 {voiceActive ? <MicOff size={20} /> : <Mic size={20} />}
               </button>
+
+              {/* Interrupt button — visible while tutor is speaking */}
+              {isSpeaking && voiceActive && (
+                <motion.button
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  onClick={triggerInterrupt}
+                  className="p-3 rounded-2xl bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 hover:text-orange-300 transition-all shadow-lg border border-orange-500/20 active:scale-90"
+                  title="Interrupt tutor"
+                >
+                  <Hand size={20} />
+                </motion.button>
+              )}
             </div>
 
             <input

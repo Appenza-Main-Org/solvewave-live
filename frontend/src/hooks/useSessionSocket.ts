@@ -17,6 +17,14 @@ const HEALTH_URL = WS_URL.replace(/^ws(s)?:\/\//, "http$1://").replace(/\/ws\/se
 const MIC_SAMPLE_RATE  = 16000;  // Gemini input: 16 kHz
 const OUT_SAMPLE_RATE  = 24000;  // Gemini output: 24 kHz
 
+// Energy threshold for barge-in detection while mic is muted during tutor speech.
+// Echo from speakers typically has RMS 0.01–0.04; actual speech is 0.06+.
+// We use a conservative threshold to avoid false positives from echo.
+const BARGE_IN_RMS_THRESHOLD = 0.07;
+// Require sustained loud audio for N consecutive frames to trigger barge-in
+// (prevents one-off noise spikes from interrupting)
+const BARGE_IN_FRAMES_REQUIRED = 3;
+
 export type SessionStatus = "idle" | "connecting" | "connected" | "error";
 export type LiveState =
   | "idle"
@@ -66,9 +74,12 @@ export function useSessionSocket() {
   const speakingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Mic mute flag: set true while tutor is speaking to prevent echo loop.
-  // Checked by both WebRTC (setMicEnabled) and WS fallback (onaudioprocess).
+  // While muted, audio is NOT sent to Gemini, but energy is still monitored
+  // for barge-in detection (user speaking loudly over the tutor).
   const micMutedRef = useRef(false);
   const micMuteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Count consecutive high-energy frames for barge-in detection
+  const bargeInFrameCountRef = useRef(0);
 
   // ── Derived live state for the UI indicator ────────────────────────────────
 
@@ -87,10 +98,11 @@ export function useSessionSocket() {
     return "idle";
   }, [status, isThinking, lastSentType, voiceActive, isSpeaking, isInterrupted]);
 
-  // NOTE: Mic stays LIVE while tutor speaks — this preserves barge-in.
-  // Gemini Live API has built-in interruption detection on the audio stream.
-  // Echo prevention is handled at the Web Speech API layer (page.tsx) to
-  // prevent the sendTextQuiet dual-path from creating duplicate responses.
+  // NOTE: Mic audio is MUTED to Gemini while tutor speaks to prevent echo.
+  // Barge-in is preserved via energy-based detection: mic levels are monitored
+  // even while muted, and when the user speaks loudly (RMS > threshold for
+  // multiple frames), we trigger an interrupt: stop playback, unmute mic,
+  // and let Gemini detect the user's speech naturally.
 
   // ── Transcript helper ──────────────────────────────────────────────────────
 
@@ -244,6 +256,12 @@ export function useSessionSocket() {
         if (msg.type === "status" && msg.value === "speaking_start") {
           setIsSpeaking(true);
           setSpeakingStartTime(Date.now());
+          // Mute mic to Gemini to prevent echo (tutor audio → speaker → mic → Gemini)
+          micMutedRef.current = true;
+          bargeInFrameCountRef.current = 0;
+          if (usingWebRTCRef.current) {
+            webrtcRef.current.setMicEnabled(false);
+          }
           if (speakingTimerRef.current) {
             clearTimeout(speakingTimerRef.current);
             speakingTimerRef.current = null;
@@ -262,6 +280,12 @@ export function useSessionSocket() {
           speakingTimerRef.current = setTimeout(() => {
             setIsSpeaking(false);
             setSpeakingStartTime(0);
+            // Unmute mic now that tutor is done speaking
+            micMutedRef.current = false;
+            bargeInFrameCountRef.current = 0;
+            if (usingWebRTCRef.current) {
+              webrtcRef.current.setMicEnabled(true);
+            }
             // Mark the last streaming entry as done
             setTranscript((prev) => {
               const lastIdx = prev.length - 1;
@@ -480,6 +504,37 @@ export function useSessionSocket() {
 
       const input = event.inputBuffer.getChannelData(0);
 
+      // ── Echo gate: don't send audio to Gemini while tutor is speaking ──
+      // This prevents the tutor's voice (played through speakers) from being
+      // picked up by the mic and sent back to Gemini (causing echo loops).
+      // BUT we still monitor energy for barge-in detection below.
+      if (micMutedRef.current) {
+        // Calculate RMS energy to detect if user is actually speaking
+        let sumSquares = 0;
+        for (let i = 0; i < input.length; i++) {
+          sumSquares += input[i] * input[i];
+        }
+        const rms = Math.sqrt(sumSquares / input.length);
+
+        if (rms > BARGE_IN_RMS_THRESHOLD) {
+          bargeInFrameCountRef.current++;
+          if (bargeInFrameCountRef.current >= BARGE_IN_FRAMES_REQUIRED) {
+            // User is speaking loudly over the tutor → trigger barge-in!
+            log.voice(`Barge-in detected! RMS=${rms.toFixed(3)} frames=${bargeInFrameCountRef.current}`);
+            micMutedRef.current = false;
+            bargeInFrameCountRef.current = 0;
+            // Stop tutor playback immediately
+            _flushPlayback();
+            // Fall through to send this frame to Gemini
+          } else {
+            return; // Wait for more consecutive frames
+          }
+        } else {
+          bargeInFrameCountRef.current = 0; // Reset counter if energy drops
+          return; // Skip sending — just echo
+        }
+      }
+
       // Resample from native rate to 16 kHz + convert to Int16 PCM
       const outLen = Math.round(input.length / ratio);
       const int16  = new Int16Array(outLen);
@@ -504,7 +559,20 @@ export function useSessionSocket() {
     source.connect(processor);
     processor.connect(silentGain);
     silentGain.connect(ctx.destination);
-    log.voice("Mic capture started — PCM chunks streaming over WS");
+    log.voice("Mic capture started — PCM chunks streaming over WS (echo-gated)");
+  }
+
+  /** Flush all scheduled playback audio (used to stop tutor mid-speech on barge-in). */
+  function _flushPlayback() {
+    const ctx = playbackCtxRef.current;
+    if (ctx) {
+      // Close and recreate playback context to kill all scheduled sources
+      ctx.close().catch(() => {});
+      const newCtx = new AudioContext({ sampleRate: OUT_SAMPLE_RATE });
+      playbackCtxRef.current = newCtx;
+      nextPlayTimeRef.current = newCtx.currentTime;
+      log.voice("Playback flushed (barge-in)");
+    }
   }
 
   // ── Voice: start / stop ────────────────────────────────────────────────────
@@ -564,6 +632,45 @@ export function useSessionSocket() {
   // startMicCapture is a plain function — no dep needed
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** Manually trigger a barge-in (user taps interrupt button while tutor speaks). */
+  const triggerInterrupt = useCallback(() => {
+    if (!isSpeaking) return;
+    log.voice("Manual barge-in triggered by user");
+    // Unmute mic so Gemini hears the user
+    micMutedRef.current = false;
+    bargeInFrameCountRef.current = 0;
+    if (usingWebRTCRef.current) {
+      webrtcRef.current.setMicEnabled(true);
+    }
+    // Stop playback immediately
+    _flushPlayback();
+    // Clear speaking state on our side (Gemini will send interrupted status)
+    setIsSpeaking(false);
+    setSpeakingStartTime(0);
+    if (speakingTimerRef.current) {
+      clearTimeout(speakingTimerRef.current);
+      speakingTimerRef.current = null;
+    }
+    // Mark streaming entry as interrupted
+    setTranscript((prev) => {
+      const lastIdx = prev.length - 1;
+      if (lastIdx >= 0 && prev[lastIdx].streaming) {
+        const updated = [...prev];
+        if (updated[lastIdx].text.trim()) {
+          updated[lastIdx] = { ...updated[lastIdx], streaming: false, text: updated[lastIdx].text.trim() + " ✋" };
+        } else {
+          updated.splice(lastIdx, 1);
+        }
+        return updated;
+      }
+      return prev;
+    });
+    setIsInterrupted(true);
+    if (interruptedTimerRef.current) clearTimeout(interruptedTimerRef.current);
+    interruptedTimerRef.current = setTimeout(() => setIsInterrupted(false), 900);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSpeaking]);
 
   const stopVoice = useCallback(() => {
     log.voice("stopVoice called by user");
@@ -721,6 +828,8 @@ export function useSessionSocket() {
     sendImageQuiet,
     startVoice,
     stopVoice,
+    /** Manually trigger barge-in (stop tutor + unmute mic) */
+    triggerInterrupt,
     /** Whether audio is flowing via WebRTC (vs WebSocket binary fallback) */
     usingWebRTC: webrtc.isRTCConnected,
   };
