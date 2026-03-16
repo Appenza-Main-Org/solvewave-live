@@ -404,7 +404,7 @@ export default function TranscriptPanel({
                                 transition={{ duration: 1.5, repeat: Infinity }}
                                 className="text-obsidian-400 text-sm"
                               >
-                                Listening...
+                                Preparing response…
                               </motion.span>
                             </div>
                           )
