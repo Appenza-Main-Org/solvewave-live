@@ -45,7 +45,7 @@
 
 Check deployment status:
 ```bash
-cd /Users/mac/Documents/faheem-live-gemini
+cd /Users/mac/Documents/solvewave-live
 
 # Check if frontend is deployed
 curl https://solvewave-frontend-872506223416.us-central1.run.app
@@ -105,7 +105,7 @@ open https://solvewave-frontend-872506223416.us-central1.run.app
 
 **After creating:**
 ```bash
-cd /Users/mac/Documents/faheem-live-gemini
+cd /Users/mac/Documents/solvewave-live
 git add docs/architecture-diagram.png
 git commit -m "docs: add architecture diagram
 
@@ -278,7 +278,7 @@ gcloud logging read "resource.type=cloud_run_revision AND resource.labels.servic
 
 ### Need to deploy with real API key
 ```bash
-cd /Users/mac/Documents/faheem-live-gemini
+cd /Users/mac/Documents/solvewave-live
 
 # Deploy backend with your Gemini API key
 gcloud run deploy solvewave-backend \

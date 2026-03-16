@@ -4,7 +4,7 @@
     {
       "name": "frontend",
       "runtimeExecutable": "/Users/mac/.nvm/versions/node/v18.17.0/bin/node",
-      "runtimeArgs": ["/Users/mac/Documents/faheem-live-gemini/frontend/node_modules/.bin/next", "dev", "/Users/mac/Documents/faheem-live-gemini/frontend"],
+      "runtimeArgs": ["/Users/mac/Documents/solvewave-live/frontend/node_modules/.bin/next", "dev", "/Users/mac/Documents/solvewave-live/frontend"],
       "port": 3000
     }
   ]
