@@ -191,6 +191,16 @@ class LiveClient:
                             audio_chunks_sent += 1
                         elif part.text:
                             turn_text_parts.append(part.text)
+                            # Stream each text chunk to the frontend immediately
+                            # so the transcript builds up in real-time (like ChatGPT Voice).
+                            if send_control:
+                                try:
+                                    await send_control({
+                                        "type": "transcript_delta",
+                                        "text": part.text,
+                                    })
+                                except Exception:
+                                    pass
 
                 # ── Turn complete ──────────────────────────────────────────────
                 if (
@@ -207,15 +217,14 @@ class LiveClient:
                             await send_control({"type": "status", "value": "speaking_end"})
                         except Exception:
                             pass
-                    # If Gemini returned text alongside audio, send it as a
-                    # transcript entry so the conversation is visible in the UI.
+                    # Send the complete transcript as a final message for the
+                    # conversation log, and signal streaming is done.
                     if turn_text_parts and send_control:
                         full_text = "".join(turn_text_parts).strip()
                         if full_text:
                             try:
                                 await send_control({
-                                    "type": "message",
-                                    "role": "tutor",
+                                    "type": "transcript_done",
                                     "text": full_text,
                                 })
                                 logger.info(

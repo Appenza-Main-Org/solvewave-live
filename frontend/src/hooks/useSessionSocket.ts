@@ -43,6 +43,7 @@ export function useSessionSocket() {
   const [lastSentType, setLastSentType] = useState<"text" | "image">("text");
   const [voiceActive, setVoiceActive]     = useState(false);
   const [isSpeaking, setIsSpeaking]       = useState(false);
+  const [speakingStartTime, setSpeakingStartTime] = useState(0);
   const [errorDetail, setErrorDetail]     = useState<string | null>(null);
   const [isInterrupted, setIsInterrupted] = useState(false);
 
@@ -242,10 +243,17 @@ export function useSessionSocket() {
         // ── Speaking state (used by both WebRTC and WS modes) ───────────
         if (msg.type === "status" && msg.value === "speaking_start") {
           setIsSpeaking(true);
+          setSpeakingStartTime(Date.now());
           if (speakingTimerRef.current) {
             clearTimeout(speakingTimerRef.current);
             speakingTimerRef.current = null;
           }
+          // Create a new streaming tutor entry for the response
+          const now = timestamp();
+          setTranscript((prev) => [
+            ...prev,
+            { role: "tutor", text: "", timestamp: now, streaming: true },
+          ]);
           return;
         }
         if (msg.type === "status" && msg.value === "speaking_end") {
@@ -253,7 +261,62 @@ export function useSessionSocket() {
           if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current);
           speakingTimerRef.current = setTimeout(() => {
             setIsSpeaking(false);
+            setSpeakingStartTime(0);
+            // Mark the last streaming entry as done
+            setTranscript((prev) => {
+              const lastIdx = prev.length - 1;
+              if (lastIdx >= 0 && prev[lastIdx].streaming) {
+                const updated = [...prev];
+                updated[lastIdx] = { ...updated[lastIdx], streaming: false };
+                return updated;
+              }
+              return prev;
+            });
           }, usingWebRTCRef.current ? 300 : 600);
+          return;
+        }
+
+        // ── Streaming transcript from Gemini audio transcription ─────────
+        if (msg.type === "transcript_delta" && typeof msg.text === "string") {
+          // Append text to the last streaming tutor entry
+          setTranscript((prev) => {
+            const lastIdx = prev.length - 1;
+            if (lastIdx >= 0 && prev[lastIdx].role === "tutor" && prev[lastIdx].streaming) {
+              const updated = [...prev];
+              updated[lastIdx] = {
+                ...updated[lastIdx],
+                text: updated[lastIdx].text + msg.text,
+              };
+              return updated;
+            }
+            // If no streaming entry exists, create one
+            return [
+              ...prev,
+              { role: "tutor", text: msg.text as string, timestamp: timestamp(), streaming: true },
+            ];
+          });
+          return;
+        }
+
+        if (msg.type === "transcript_done" && typeof msg.text === "string") {
+          // Finalize the streaming entry with the complete text
+          setTranscript((prev) => {
+            const lastIdx = prev.length - 1;
+            if (lastIdx >= 0 && prev[lastIdx].role === "tutor" && prev[lastIdx].streaming) {
+              const updated = [...prev];
+              updated[lastIdx] = {
+                ...updated[lastIdx],
+                text: (msg.text as string).trim(),
+                streaming: false,
+              };
+              return updated;
+            }
+            // No streaming entry — just append as a regular message
+            return [
+              ...prev,
+              { role: "tutor", text: (msg.text as string).trim(), timestamp: timestamp() },
+            ];
+          });
           return;
         }
 
@@ -297,10 +360,26 @@ export function useSessionSocket() {
         } else if (msg.type === "status" && msg.value === "interrupted") {
           log.voice("Barge-in: tutor interrupted by student");
           setIsSpeaking(false);
+          setSpeakingStartTime(0);
           if (speakingTimerRef.current) {
             clearTimeout(speakingTimerRef.current);
             speakingTimerRef.current = null;
           }
+          // Mark any streaming entry as done (keep text shown so far)
+          setTranscript((prev) => {
+            const lastIdx = prev.length - 1;
+            if (lastIdx >= 0 && prev[lastIdx].streaming) {
+              const updated = [...prev];
+              if (updated[lastIdx].text.trim()) {
+                updated[lastIdx] = { ...updated[lastIdx], streaming: false, text: updated[lastIdx].text.trim() + " ✋" };
+              } else {
+                // Remove empty streaming entry
+                updated.splice(lastIdx, 1);
+              }
+              return updated;
+            }
+            return prev;
+          });
           setIsInterrupted(true);
           if (interruptedTimerRef.current) clearTimeout(interruptedTimerRef.current);
           interruptedTimerRef.current = setTimeout(() => setIsInterrupted(false), 900);
@@ -627,6 +706,8 @@ export function useSessionSocket() {
     isActive: status === "connected",
     isThinking,
     isSpeaking,
+    /** Timestamp (Date.now()) when the tutor started speaking — used for word highlighting */
+    speakingStartTime,
     liveState,
     voiceActive,
     errorDetail,

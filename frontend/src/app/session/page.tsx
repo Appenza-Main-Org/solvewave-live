@@ -84,6 +84,7 @@ export default function SessionPage() {
     isActive,
     isThinking,
     isSpeaking,
+    speakingStartTime,
     liveState,
     voiceActive,
     errorDetail,
@@ -472,6 +473,7 @@ export default function SessionPage() {
                 entries={transcript}
                 isThinking={isThinking && isActive}
                 isSpeaking={isSpeaking}
+                speakingStartTime={speakingStartTime}
                 onSpeak={speakText}
               />
             </div>

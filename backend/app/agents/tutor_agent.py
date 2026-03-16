@@ -168,6 +168,9 @@ class TutorAgent:
 
         return types.LiveConnectConfig(
             response_modalities=["AUDIO"],
+            # Enable text transcription of audio output so the frontend can
+            # display the tutor's words in the transcript panel as they're spoken.
+            output_audio_transcription=types.AudioTranscriptionConfig(),
             system_instruction=types.Content(
                 parts=[types.Part(text=self._system_prompt)],
                 role="user",
