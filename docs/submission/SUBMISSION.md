@@ -17,11 +17,13 @@
 The app supports **three tutoring modes** (Explain, Quiz, Homework) switchable mid-session, and features **full-duplex audio** with natural barge-in/interruption handling, making it feel like a live 1:1 tutoring session. Audio transport uses **WebRTC** (Opus codec with browser-native echo cancellation, noise suppression, and auto gain control) with automatic WebSocket fallback.
 
 ### Key Features
-- **Voice-first interaction** — Speak naturally; SolveWave responds in real-time using Gemini's native audio capabilities
+- **Voice-first interaction** — Speak naturally; SolveWave responds in real-time using Gemini's native audio capabilities with auto-speak TTS fallback
 - **Barge-in support** — Interrupt the tutor mid-explanation; the system detects and handles it gracefully
+- **Echo suppression** — Intelligent detection prevents mic from capturing tutor audio playback (both Gemini Live audio and browser TTS)
 - **Vision-enabled** — Snap or upload homework; SolveWave reads handwritten or printed math problems
 - **WebRTC audio transport** — Opus-encoded audio over DTLS/SRTP with browser AEC/NS/AGC; automatic WebSocket PCM fallback
-- **Live transcription** — See your spoken words transcribed in real-time (Web Speech API)
+- **Live transcription** — See your spoken words transcribed in real-time (Web Speech API, English-only)
+- **Math rendering** — KaTeX inline rendering for mathematical expressions in tutor responses
 - **Session timer & recap** — Track session duration; get a summary at the end
 - **Three modes** — Explain (step-by-step), Quiz (test understanding), Homework (help solve actual problems)
 - **Tool use** — Gemini calls structured functions to detect problem types, check answers, generate hints, and build recaps
@@ -111,11 +113,14 @@ See [docs/architecture-diagram.png](docs/architecture-diagram.png) for a visual 
    - Chrome/Edge support it natively; Safari/Firefox support is partial or experimental
    - Partial results update in real-time, giving instant feedback
    - Final transcripts are surprisingly accurate for math terminology
+   - Hardcoded to English-only (`en-US`) for reliable math vocabulary recognition
 
-### 4. **Dual response path ensures reliability**
+### 4. **Dual response path with auto-speak ensures reliability**
    - Voice input simultaneously goes to Gemini Live API (audio) and standard text API (transcript)
    - Students always get both a spoken answer and a written transcript
-   - Echo suppression prevents transcription from picking up tutor audio
+   - Browser TTS auto-speaks tutor text responses with 800ms delay (gives Gemini Live audio priority)
+   - Echo suppression tracks both Gemini Live audio (`isSpeakingRef`) and browser TTS (`ttsSpeakingRef`) to prevent mic from capturing playback
+   - Gemini Live API uses `response_modalities=["AUDIO"]` only (TEXT modality is unsupported with native audio models)
 
 ### 5. **Mode-specific system prompt addendums are powerful**
    - Instead of hardcoding three separate system prompts, we inject short addendums at runtime (Explain / Quiz / Homework)
