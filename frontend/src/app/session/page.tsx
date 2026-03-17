@@ -102,6 +102,7 @@ export default function SessionPage() {
     startVoice,
     stopVoice,
     triggerInterrupt,
+    echoSuppressRef,
   } = useSessionSocket();
 
   const { formatted: timerDisplay } = useSessionTimer(isActive);
@@ -127,6 +128,7 @@ export default function SessionPage() {
   // Web Speech API picks up tutor audio from the speaker. The isSpeaking flag
   // flips false when Gemini sends "speaking_end", but audio buffers are still
   // draining for 1-3 seconds. This cooldown prevents the echo loop.
+  // BUT: skip cooldown after interrupt — user intentionally interrupted to speak.
   const speakingCooldownRef = useRef(false);
   useEffect(() => {
     if (isSpeaking) {
@@ -140,6 +142,13 @@ export default function SessionPage() {
     }
   }, [isSpeaking]);
 
+  // Clear cooldown immediately on interrupt so user's speech is captured
+  useEffect(() => {
+    if (liveState === "interrupted") {
+      speakingCooldownRef.current = false;
+    }
+  }, [liveState]);
+
   // Track whether transcription was active before we paused it for echo suppression
   const wasTranscribingRef = useRef(false);
 
@@ -149,7 +158,8 @@ export default function SessionPage() {
     if (!text.trim()) return;
 
     // Ignore echo: Web Speech API picks up tutor speaker output (Live audio or TTS)
-    if (isSpeakingRef.current || speakingCooldownRef.current || ttsSpeakingRef.current) return;
+    // echoSuppressRef is synchronous (updated instantly on barge-in), unlike isSpeakingRef
+    if (echoSuppressRef.current || speakingCooldownRef.current || ttsSpeakingRef.current) return;
 
     setTranscript((prev) => {
       const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -173,7 +183,8 @@ export default function SessionPage() {
     if (!text.trim()) return;
 
     // Ignore echo: Web Speech API picks up tutor speaker output (Live audio or TTS)
-    if (isSpeakingRef.current || speakingCooldownRef.current || ttsSpeakingRef.current) return;
+    // echoSuppressRef is synchronous (updated instantly on barge-in), unlike isSpeakingRef
+    if (echoSuppressRef.current || speakingCooldownRef.current || ttsSpeakingRef.current) return;
 
     const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -195,12 +206,16 @@ export default function SessionPage() {
     });
 
     // Route the final transcript to the appropriate API:
-    // - Voice active: display only! Gemini Live handles speech recognition via
-    //   the audio stream. Sending text would cause echo (Web Speech API picks up
-    //   tutor audio from speaker) and voice changes (text API → browser TTS).
+    // - Voice active: send via voice_text so the backend has the text context
+    //   AND can respond via text API (the response triggers browser TTS).
+    //   Gemini Live also hears the audio, but this ensures a guaranteed response.
     // - Voice off: send to the standard text API for a text-only response.
-    if (isActiveRef.current && !voiceActiveRef.current) {
-      sendTextQuietRef.current(text, modeRef.current);
+    if (isActiveRef.current) {
+      if (voiceActiveRef.current) {
+        sendVoiceTextRef.current(text, modeRef.current);
+      } else {
+        sendTextQuietRef.current(text, modeRef.current);
+      }
     }
   }, [setTranscript]);
 
@@ -291,7 +306,19 @@ export default function SessionPage() {
 
   function handleSend() {
     if (!canSend) return;
-    sendText(text.trim(), mode);
+    const trimmed = text.trim();
+    // When voice is active, route typed text through voice_text path so the
+    // response gets spoken via browser TTS. Also append to transcript manually
+    // since sendVoiceText doesn't do that.
+    if (voiceActive) {
+      setTranscript((prev) => [
+        ...prev,
+        { role: "student", text: trimmed, timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) },
+      ]);
+      sendVoiceText(trimmed, mode);
+    } else {
+      sendText(trimmed, mode);
+    }
     setText("");
   }
 
@@ -568,20 +595,14 @@ export default function SessionPage() {
                 {voiceActive ? <MicOff size={20} /> : <Mic size={20} />}
               </button>
 
-              {/* Interrupt button — always visible when voice is active */}
+              {/* Interrupt button — always enabled when voice is active */}
               {voiceActive && (
                 <motion.button
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0, opacity: 0 }}
                   onClick={triggerInterrupt}
-                  disabled={!isSpeaking}
-                  className={`
-                    p-3 rounded-2xl transition-all shadow-lg border active:scale-90
-                    ${isSpeaking
-                      ? "bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 hover:text-orange-300 border-orange-500/20 animate-pulse"
-                      : "bg-white/5 text-obsidian-500 border-white/5 opacity-40 cursor-default"}
-                  `}
+                  className="p-3 rounded-2xl transition-all shadow-lg border active:scale-90 bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 hover:text-orange-300 border-orange-500/20"
                   title="Interrupt tutor"
                 >
                   <Hand size={20} />

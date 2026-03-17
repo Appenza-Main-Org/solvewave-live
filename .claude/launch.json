@@ -7,5 +7,12 @@
       "runtimeArgs": ["/Users/mac/Documents/solvewave-live/frontend/node_modules/.bin/next", "dev", "/Users/mac/Documents/solvewave-live/frontend"],
       "port": 3000
     }
+    ,
+    {
+      "name": "gallery",
+      "runtimeExecutable": "/Users/mac/.nvm/versions/node/v18.17.0/bin/node",
+      "runtimeArgs": ["/Users/mac/Documents/solvewave-live/docs/submission/server.js"],
+      "port": 4567
+    }
   ]
 }

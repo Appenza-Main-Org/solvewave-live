@@ -50,20 +50,22 @@ _LOG = "[SolveWave][backend]"
 # Keeps the base system_prompt.md clean and allows runtime mode switching.
 _MODE_ADDENDUM: dict[str, str] = {
     "explain": (
-        "\n\n[Mode: Explain — explain ONE step at a time. Say 2-3 sentences max, then pause "
+        "\n\n[Mode: Explain — explain ONE step at a time using numbered steps and LaTeX math. "
+        "Show the math with $...$ notation. Say 2-3 sentences max, then pause "
         "and ask 'Does that make sense?' or 'Ready for the next step?'. "
-        "Do NOT give all steps at once. Keep it voice-friendly and conversational. "
+        "Do NOT give all steps at once. Use **Step 1:**, **Step 2:** format. "
         "Never narrate your thinking — jump straight into the math.]"
     ),
     "quiz": (
-        "\n\n[Mode: Quiz — ask ONE short math question. Wait for the answer. "
-        "Give brief feedback (1-2 sentences). Keep the pace brisk and voice-friendly. "
-        "Use check_answer and generate_next_hint tools.]"
+        "\n\n[Mode: Quiz — ask ONE short math question using LaTeX notation ($...$). "
+        "Wait for the answer. Give brief feedback (1-2 sentences). "
+        "Keep the pace brisk. Use check_answer and generate_next_hint tools.]"
     ),
     "homework": (
         "\n\n[Mode: Homework — guide the student through ONE step at a time. "
-        "Say 2-3 sentences, then pause and check understanding. "
-        "Do NOT dump the full solution — walk through it step by step in conversation. "
+        "Use numbered **Step N:** format with LaTeX math ($...$). "
+        "Show the actual math work, not just words. "
+        "Do NOT dump the full solution — walk through it step by step. "
         "Never narrate your thinking — jump straight into the math.]"
     ),
 }
@@ -170,9 +172,14 @@ async def handle_session(websocket: WebSocket) -> None:
             if not student_text.strip():
                 return
             logger.info(
-                "%s[route] voice_text → text API | session=%s text=%r",
+                "%s[route] voice_text → text API + Live inject | session=%s text=%r",
                 _LOG, config.session_id, student_text[:120],
             )
+
+            # Also inject the text into the Gemini Live session so it can
+            # respond with audio on the next turn (the text API gives us
+            # a guaranteed text reply, but the Live session needs the context).
+            await voice_text_queue.put(student_text)
 
             reply = await client.generate_text_reply(
                 user_text=student_text,
@@ -349,6 +356,13 @@ async def handle_session(websocket: WebSocket) -> None:
                             data = json.loads(message["text"])
                             if data.get("type") in ("rtc_offer",):
                                 await handle_rtc_signaling(data)
+                            elif data.get("type") == "interrupt":
+                                logger.info(
+                                    "%s[ws] interrupt received from frontend | session=%s",
+                                    _LOG, config.session_id,
+                                )
+                                # No-op on backend — Gemini detects barge-in via audio.
+                                # The frontend handles playback flush and state reset.
                             else:
                                 await handle_text_message(message["text"])
                         except json.JSONDecodeError:

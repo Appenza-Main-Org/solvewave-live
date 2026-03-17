@@ -224,7 +224,11 @@ class LiveClient:
         from google.genai import types
 
         audio_chunks_sent = 0
-        turn_text_parts: list[str] = []  # accumulate text parts within a turn
+        # Separate tracking: part.text is the model's internal thinking/plan,
+        # while output_audio_transcription is what was actually spoken aloud.
+        # We prefer transcription for the displayed transcript.
+        thinking_parts: list[str] = []       # from part.text (internal reasoning)
+        transcription_parts: list[str] = []  # from output_audio_transcription (actual speech)
 
         try:
             async for response in session.receive():
@@ -238,7 +242,8 @@ class LiveClient:
                         config.session_id,
                     )
                     audio_chunks_sent = 0
-                    turn_text_parts = []  # discard partial turn text
+                    thinking_parts = []
+                    transcription_parts = []
                     if send_control:
                         try:
                             await send_control({"type": "status", "value": "interrupted"})
@@ -282,40 +287,43 @@ class LiveClient:
                             await send_audio(part.inline_data.data)
                             audio_chunks_sent += 1
                         elif part.text:
-                            # part.text contains the model's response. For native
-                            # audio models it often includes a "thinking header"
-                            # (e.g. **Solving the Problem**\n\n...) followed by
-                            # the actual answer. Clean it up for the transcript.
+                            # part.text is the model's internal thinking/plan for
+                            # what to say — NOT what's actually spoken. For native
+                            # audio models this is often a plan like "I'm going to
+                            # explain step by step...". We log it but do NOT send
+                            # it as transcript_delta (use transcription instead).
                             t = _clean_thinking_text(part.text)
                             if t:
                                 logger.info(
-                                    "[SolveWave][backend][voice] part.text: %r [%s]",
+                                    "[SolveWave][backend][voice] part.text (thinking, not displayed): %r [%s]",
                                     t[:120], config.session_id,
                                 )
-                                turn_text_parts.append(t)
-                                if send_control:
-                                    try:
-                                        await send_control({
-                                            "type": "transcript_delta",
-                                            "text": t,
-                                        })
-                                    except Exception:
-                                        pass
+                                thinking_parts.append(t)
 
                 # ── Audio transcription (what the tutor actually said) ────────
-                # Check multiple locations — the SDK may place transcription
-                # at different levels depending on model/SDK version.
+                # This is the real spoken content — send it to the transcript.
+                # Check multiple attribute names — SDK versions may differ:
+                #   - output_transcription (current google-genai SDK)
+                #   - output_audio_transcription (older/alternative name)
+                _TRANSCRIPTION_ATTRS = [
+                    "output_transcription",
+                    "output_audio_transcription",
+                ]
                 for _src_obj, _src_name in [
                     (getattr(response, "server_content", None), "server_content"),
                     (response, "response"),
                 ]:
                     if _src_obj is None:
                         continue
-                    transcription = getattr(_src_obj, "output_audio_transcription", None)
+                    transcription = None
+                    for _attr in _TRANSCRIPTION_ATTRS:
+                        transcription = getattr(_src_obj, _attr, None)
+                        if transcription:
+                            break
                     if transcription:
                         t_text = transcription if isinstance(transcription, str) else getattr(transcription, "text", str(transcription))
                         if t_text and t_text.strip():
-                            turn_text_parts.append(t_text)
+                            transcription_parts.append(t_text)
                             logger.info(
                                 "[SolveWave][backend][voice] transcription(%s): %r [%s]",
                                 _src_name, t_text[:120], config.session_id,
@@ -350,9 +358,18 @@ class LiveClient:
                     response.server_content
                     and response.server_content.turn_complete
                 ):
+                    # Only use transcription (actual speech) for display.
+                    # Thinking text is the model's internal plan — NOT what was
+                    # spoken aloud. Showing it confuses users ("I'm focusing on
+                    # breaking down..."). If transcription isn't available, show
+                    # nothing — the audio itself carries the response.
+                    display_parts = transcription_parts
                     logger.info(
-                        "[SolveWave][backend][voice] turn complete | audio_chunks=%d text_parts=%d [%s]",
-                        audio_chunks_sent, len(turn_text_parts), config.session_id,
+                        "[SolveWave][backend][voice] turn complete | audio_chunks=%d "
+                        "transcription_parts=%d thinking_parts=%d source=%s [%s]",
+                        audio_chunks_sent, len(transcription_parts), len(thinking_parts),
+                        "transcription" if transcription_parts else "audio_only(no_text)",
+                        config.session_id,
                     )
                     # Notify frontend that tutor audio has ended
                     # Always send speaking_end (even if audio_chunks_sent == 0)
@@ -365,8 +382,8 @@ class LiveClient:
                             pass
                     # Send the complete transcript as a final message for the
                     # conversation log, and signal streaming is done.
-                    if turn_text_parts and send_control:
-                        full_text = "".join(turn_text_parts).strip()
+                    if display_parts and send_control:
+                        full_text = "".join(display_parts).strip()
                         if full_text:
                             try:
                                 await send_control({
@@ -382,7 +399,8 @@ class LiveClient:
                                     "[SolveWave][backend][voice] transcript send failed: %s", exc
                                 )
                     audio_chunks_sent = 0
-                    turn_text_parts = []
+                    thinking_parts = []
+                    transcription_parts = []
 
         except asyncio.CancelledError:
             raise

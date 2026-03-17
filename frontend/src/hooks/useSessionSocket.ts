@@ -20,10 +20,10 @@ const OUT_SAMPLE_RATE  = 24000;  // Gemini output: 24 kHz
 // Energy threshold for barge-in detection while mic is muted during tutor speech.
 // Echo from speakers typically has RMS 0.01–0.03; actual speech is 0.04+.
 // Lower threshold = easier to interrupt (better UX for competition demo).
-const BARGE_IN_RMS_THRESHOLD = 0.04;
+const BARGE_IN_RMS_THRESHOLD = 0.10;
 // Require sustained loud audio for N consecutive frames to trigger barge-in
 // (prevents one-off noise spikes from interrupting)
-const BARGE_IN_FRAMES_REQUIRED = 2;
+const BARGE_IN_FRAMES_REQUIRED = 3;
 
 export type SessionStatus = "idle" | "connecting" | "connected" | "error";
 export type LiveState =
@@ -87,6 +87,14 @@ export function useSessionSocket() {
   // acknowledges via speaking_end or interrupted status). Without this, the backend
   // keeps sending audio chunks after interrupt which get played on the new AudioContext.
   const discardAudioRef = useRef(false);
+  // Set true when speaking_end is received — prevents late WS audio chunks from
+  // re-entering speaking state and overriding the mic unmute.
+  const speakingEndReceivedRef = useRef(false);
+  // Synchronous echo suppression flag — set true when tutor starts speaking,
+  // cleared IMMEDIATELY (not via React state) on barge-in/interrupt/speaking_end.
+  // This avoids the stale-ref problem where isSpeakingRef in page.tsx doesn't
+  // update until React re-renders, causing Web Speech API transcripts to be dropped.
+  const echoSuppressRef = useRef(false);
 
   // ── Derived live state for the UI indicator ────────────────────────────────
 
@@ -131,23 +139,6 @@ export function useSessionSocket() {
     // Ensure playback context is running (Chrome auto-suspend protection)
     if (ctx.state === "suspended") ctx.resume();
 
-    // In WS fallback mode, also use chunk arrival as a speaking signal
-    // (speaking_start/speaking_end control frames are the primary mechanism,
-    // but this provides a safety net for WS-only mode)
-    if (!usingWebRTCRef.current) {
-      setIsSpeaking(true);
-      if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current);
-      speakingTimerRef.current = setTimeout(() => {
-        setIsSpeaking(false);
-        // CRITICAL: Also unmute mic here. Without this, if a late audio chunk
-        // arrives AFTER the speaking_end control message, this timer replaces
-        // the speaking_end timer (which included mic unmute), causing the mic
-        // to stay permanently muted after the first tutor response.
-        micMutedRef.current = false;
-        bargeInFrameCountRef.current = 0;
-      }, 600);
-    }
-
     const int16   = new Int16Array(pcmBytes);
     const float32 = new Float32Array(int16.length);
     for (let i = 0; i < int16.length; i++) {
@@ -164,6 +155,29 @@ export function useSessionSocket() {
     const t = Math.max(ctx.currentTime, nextPlayTimeRef.current);
     source.start(t);
     nextPlayTimeRef.current = t + buf.duration;
+
+    // ── Keep isSpeaking=true while audio is scheduled for playback ──
+    // This ensures the interrupt button stays enabled the entire time
+    // audio is actually playing through speakers.
+    if (!usingWebRTCRef.current) {
+      // Always set speaking true when we have audio scheduled
+      setIsSpeaking(true);
+
+      // Calculate when playback actually ends (from NOW, not from speaking_end)
+      const remainingMs = Math.max(0, (nextPlayTimeRef.current - ctx.currentTime) * 1000);
+      const delay = remainingMs + 400; // 400ms buffer for audio pipeline
+
+      if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current);
+      speakingTimerRef.current = setTimeout(() => {
+        setIsSpeaking(false);
+        setSpeakingStartTime(0);
+        micMutedRef.current = false;
+        bargeInFrameCountRef.current = 0;
+        if (usingWebRTCRef.current) {
+          webrtcRef.current.setMicEnabled(true);
+        }
+      }, delay);
+    }
   }, []);
 
   // ── Voice cleanup (stable — only uses refs + stable setter) ───────────────
@@ -196,6 +210,8 @@ export function useSessionSocket() {
     }
     micMutedRef.current = false;
     discardAudioRef.current = false;
+    speakingEndReceivedRef.current = false;
+    echoSuppressRef.current = false;
 
     setVoiceActive(false);
     setIsSpeaking(false);
@@ -274,8 +290,10 @@ export function useSessionSocket() {
         if (msg.type === "status" && msg.value === "speaking_start") {
           setIsSpeaking(true);
           setSpeakingStartTime(Date.now());
-          // Reset discard flag — new speech turn, accept audio
+          echoSuppressRef.current = true; // Suppress transcription during tutor speech
+          // Reset flags — new speech turn, accept audio
           discardAudioRef.current = false;
+          speakingEndReceivedRef.current = false;
           // Mute mic to Gemini to prevent echo (tutor audio → speaker → mic → Gemini)
           micMutedRef.current = true;
           bargeInFrameCountRef.current = 0;
@@ -295,19 +313,47 @@ export function useSessionSocket() {
           return;
         }
         if (msg.type === "status" && msg.value === "speaking_end") {
-          // Small delay before clearing speaking state (audio still draining)
+          // Mark that speaking_end was received — prevents late WS audio
+          // chunks from re-entering speaking state
+          speakingEndReceivedRef.current = true;
+          echoSuppressRef.current = false; // Allow transcription
+          // Unmute mic IMMEDIATELY so user can speak right away.
+          // Don't wait for the UI timer — mic access is critical.
+          micMutedRef.current = false;
+          bargeInFrameCountRef.current = 0;
+          if (usingWebRTCRef.current) {
+            webrtcRef.current.setMicEnabled(true);
+          }
+          discardAudioRef.current = false; // Accept audio for next turn
+
+          // Calculate how long until all scheduled audio finishes playing.
+          // The backend sends speaking_end when the LAST chunk is sent, but
+          // the browser has scheduled those chunks for future playback.
+          // Wait until playback actually finishes before clearing speaking state,
+          // so the interrupt button stays enabled while audio is still audible.
+          const playbackCtx = playbackCtxRef.current;
+          const remainingMs = playbackCtx
+            ? Math.max(0, (nextPlayTimeRef.current - playbackCtx.currentTime) * 1000)
+            : 0;
+          // Add a small buffer (300ms) to account for audio pipeline latency
+          const delay = Math.max(
+            usingWebRTCRef.current ? 300 : 600,
+            remainingMs + 300
+          );
+          log.voice(`speaking_end: remaining playback ${remainingMs.toFixed(0)}ms, delay ${delay.toFixed(0)}ms`);
+
           if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current);
           speakingTimerRef.current = setTimeout(() => {
             setIsSpeaking(false);
             setSpeakingStartTime(0);
-            discardAudioRef.current = false; // Accept audio for next turn
-            // Unmute mic now that tutor is done speaking
+            // Safety: re-ensure mic is unmuted (in case late chunk re-muted)
             micMutedRef.current = false;
             bargeInFrameCountRef.current = 0;
             if (usingWebRTCRef.current) {
               webrtcRef.current.setMicEnabled(true);
             }
-            // Mark the last streaming entry as done
+            // Mark the last streaming entry as done (safety net —
+            // transcript_done should handle this, but finalize if it didn't)
             setTranscript((prev) => {
               const lastIdx = prev.length - 1;
               if (lastIdx >= 0 && prev[lastIdx].streaming) {
@@ -317,24 +363,28 @@ export function useSessionSocket() {
               }
               return prev;
             });
-          }, usingWebRTCRef.current ? 300 : 600);
+          }, delay);
           return;
         }
 
         // ── Streaming transcript from Gemini audio transcription ─────────
         if (msg.type === "transcript_delta" && typeof msg.text === "string") {
-          // Append text to the last streaming tutor entry
+          // Append text to the last tutor entry (streaming or recently finalized).
+          // The speaking_end timer may finalize the entry before all deltas arrive,
+          // so we also append to non-streaming tutor entries to avoid splitting
+          // the transcript into multiple bubbles.
           setTranscript((prev) => {
             const lastIdx = prev.length - 1;
-            if (lastIdx >= 0 && prev[lastIdx].role === "tutor" && prev[lastIdx].streaming) {
+            if (lastIdx >= 0 && prev[lastIdx].role === "tutor") {
               const updated = [...prev];
               updated[lastIdx] = {
                 ...updated[lastIdx],
                 text: updated[lastIdx].text + msg.text,
+                streaming: true, // Re-mark as streaming so it keeps accepting deltas
               };
               return updated;
             }
-            // If no streaming entry exists, create one
+            // If no tutor entry exists at all, create one
             return [
               ...prev,
               { role: "tutor", text: msg.text as string, timestamp: timestamp(), streaming: true },
@@ -344,22 +394,35 @@ export function useSessionSocket() {
         }
 
         if (msg.type === "transcript_done" && typeof msg.text === "string") {
+          const finalText = (msg.text as string).trim();
+          if (!finalText) return;
           // Finalize the streaming entry with the complete text
           setTranscript((prev) => {
             const lastIdx = prev.length - 1;
+            // Case 1: streaming entry still active — update it
             if (lastIdx >= 0 && prev[lastIdx].role === "tutor" && prev[lastIdx].streaming) {
               const updated = [...prev];
               updated[lastIdx] = {
                 ...updated[lastIdx],
-                text: (msg.text as string).trim(),
+                text: finalText,
                 streaming: false,
               };
               return updated;
             }
-            // No streaming entry — just append as a regular message
+            // Case 2: streaming entry was already finalized by speaking_end timer —
+            // update the last tutor entry in-place instead of duplicating
+            if (lastIdx >= 0 && prev[lastIdx].role === "tutor") {
+              const updated = [...prev];
+              updated[lastIdx] = {
+                ...updated[lastIdx],
+                text: finalText,
+              };
+              return updated;
+            }
+            // Case 3: no tutor entry found — append new (shouldn't normally happen)
             return [
               ...prev,
-              { role: "tutor", text: (msg.text as string).trim(), timestamp: timestamp() },
+              { role: "tutor", text: finalText, timestamp: timestamp() },
             ];
           });
           return;
@@ -407,6 +470,7 @@ export function useSessionSocket() {
         } else if (msg.type === "status" && msg.value === "interrupted") {
           log.voice("Barge-in: tutor interrupted by student");
           discardAudioRef.current = false; // Backend acknowledged — accept audio again
+          echoSuppressRef.current = false; // Allow transcription
           setIsSpeaking(false);
           setSpeakingStartTime(0);
           if (speakingTimerRef.current) {
@@ -550,6 +614,26 @@ export function useSessionSocket() {
             bargeInFrameCountRef.current = 0;
             // Stop tutor playback immediately
             _flushPlayback();
+            // Clear speaking state immediately so Web Speech API transcription
+            // is unblocked. Without this, isSpeakingRef stays true until the
+            // backend sends "interrupted" status, blocking all transcription.
+            echoSuppressRef.current = false; // Synchronous — unblocks transcription NOW
+            setIsSpeaking(false);
+            setSpeakingStartTime(0);
+            setIsInterrupted(true);
+            if (interruptedTimerRef.current) clearTimeout(interruptedTimerRef.current);
+            interruptedTimerRef.current = setTimeout(() => setIsInterrupted(false), 900);
+            if (speakingTimerRef.current) {
+              clearTimeout(speakingTimerRef.current);
+              speakingTimerRef.current = null;
+            }
+            // Safety timeout for discardAudioRef
+            setTimeout(() => {
+              if (discardAudioRef.current) {
+                log.voice("Safety reset: clearing discardAudioRef after auto barge-in");
+                discardAudioRef.current = false;
+              }
+            }, 3000);
             // Fall through to send this frame to Gemini
           } else {
             return; // Wait for more consecutive frames
@@ -658,12 +742,12 @@ export function useSessionSocket() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** Manually trigger a barge-in (user taps interrupt button while tutor speaks). */
+  /** Manually trigger a barge-in (user taps interrupt button). */
   const triggerInterrupt = useCallback(() => {
-    if (!isSpeaking) return;
     log.voice("Manual barge-in triggered by user");
     // Discard remaining audio chunks from the backend
     discardAudioRef.current = true;
+    echoSuppressRef.current = false; // Synchronous — unblocks transcription NOW
     // Unmute mic so Gemini hears the user
     micMutedRef.current = false;
     bargeInFrameCountRef.current = 0;
@@ -696,6 +780,21 @@ export function useSessionSocket() {
     setIsInterrupted(true);
     if (interruptedTimerRef.current) clearTimeout(interruptedTimerRef.current);
     interruptedTimerRef.current = setTimeout(() => setIsInterrupted(false), 900);
+
+    // Notify backend so it can handle the interruption on the Gemini Live session
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "interrupt" }));
+    }
+
+    // Safety timeout: reset discardAudioRef even if backend never acknowledges.
+    // Without this, discardAudioRef stays true forever and blocks all future audio.
+    setTimeout(() => {
+      if (discardAudioRef.current) {
+        log.voice("Safety reset: clearing discardAudioRef after interrupt timeout");
+        discardAudioRef.current = false;
+      }
+    }, 3000);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSpeaking]);
 
@@ -880,6 +979,8 @@ export function useSessionSocket() {
     triggerInterrupt,
     /** Whether audio is flowing via WebRTC (vs WebSocket binary fallback) */
     usingWebRTC: webrtc.isRTCConnected,
+    /** Synchronous echo suppression ref — true while tutor is speaking, cleared instantly on barge-in */
+    echoSuppressRef,
   };
 }
 
