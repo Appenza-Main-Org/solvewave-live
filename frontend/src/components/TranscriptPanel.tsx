@@ -40,20 +40,45 @@ function processInlineContent(text: string): string {
   // Safety: strip any leaked KaTeX/HTML markup from the text.
   // This can happen if Gemini's output_transcription includes HTML fragments
   // or if processed KaTeX output leaks into state during streaming.
+  // Detection is aggressive: check for KaTeX class names, HTML-like patterns
+  // with optional spaces (e.g. "< span" or "< /span >"), and common KaTeX
+  // internal classes like "katex", "mord", "mbin", "strut", "pstrut".
   let cleaned = text;
-  if (/<span[\s>]|<\/span>|<math[\s>]|<annotation[\s>]/.test(cleaned)) {
+  const hasLeakedHtml = /katex|class\s*=\s*"|<\s*\/?span[\s>]|<\s*math[\s>]|<\s*annotation[\s>]|<\s*\/\s*span\s*>|spanclass|mord|mbin|pstrut|strut.*height/i.test(cleaned);
+  if (hasLeakedHtml) {
     // Try to extract LaTeX source from annotation tags first
     const annotations: string[] = [];
-    cleaned.replace(/<annotation[^>]*encoding="application\/x[^"]*"[^>]*>([\s\S]*?)<\/annotation>/g, (_, tex) => {
+    cleaned.replace(/<annotation[^>]*encoding[^>]*>([\s\S]*?)<\/annotation>/gi, (_, tex) => {
       annotations.push(tex.trim());
       return '';
     });
-    // Strip all HTML tags
-    cleaned = cleaned.replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    // Also try to extract from annotation-like patterns with spaces
+    cleaned.replace(/annotation[^>]*encoding[^>]*>\s*([\s\S]*?)\s*<\s*\/\s*annotation/gi, (_, tex) => {
+      const t = tex.trim();
+      if (t && !annotations.includes(t)) annotations.push(t);
+      return '';
+    });
+    // Strip all HTML-like tags (including those with extra spaces around < >)
+    cleaned = cleaned
+      .replace(/<\s*[^>]+\s*>/g, ' ')  // normal tags
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+    // Remove leftover KaTeX artifacts: class names, style fragments
+    cleaned = cleaned
+      .replace(/\b(spanclass|class)\s*=\s*"[^"]*"/gi, '')
+      .replace(/\bstyle\s*=\s*"[^"]*"/gi, '')
+      .replace(/\baria-hidden\s*=\s*"[^"]*"/gi, '')
+      .replace(/\bxmlns\s*=\s*"[^"]*"/gi, '')
+      .replace(/\b(semantics|mrow|annotation|annotationencoding|mathxmlns)\b/gi, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
     // Re-insert extracted LaTeX with proper delimiters
     for (const tex of annotations) {
       if (tex && !cleaned.includes(`$${tex}$`)) {
-        cleaned = cleaned.replace(tex, `$${tex}$`);
+        // Try to replace the bare text, or just append
+        if (cleaned.includes(tex)) {
+          cleaned = cleaned.replace(tex, `$${tex}$`);
+        }
       }
     }
   }

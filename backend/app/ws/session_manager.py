@@ -135,41 +135,49 @@ async def handle_session(websocket: WebSocket) -> None:
         mode = str(data.get("mode", "explain"))
         effective_prompt = agent.system_prompt + _MODE_ADDENDUM.get(mode, "")
 
-        # ── Voice text path (standard text API fallback) ───────────────────────
+        # ── Voice text path ────────────────────────────────────────────────────
         # When voice is active, Web Speech API captures the student's speech as
-        # text. We route it through the standard text API (not Gemini Live session
-        # injection, which is unreliable when send_realtime_input audio is active).
-        # The response is sent as a regular "message" and the frontend speaks it
-        # via browser TTS.
+        # text. We inject it into the Gemini Live session (so it can respond
+        # with audio) AND call the text API for a guaranteed text reply.
+        #
+        # CRITICAL: The text API call must NOT block the receive_loop, because
+        # blocking it prevents binary audio frames from being queued, which
+        # starves the Gemini Live session and kills the audio connection.
         if msg_type == "voice_text":
             student_text = str(data.get("text", ""))
             if not student_text.strip():
                 return
             logger.info(
-                "%s[route] voice_text → text API + Live inject | session=%s text=%r",
+                "%s[route] voice_text → Live inject + text API (background) | session=%s text=%r",
                 _LOG, config.session_id, student_text[:120],
             )
 
-            # Also inject the text into the Gemini Live session so it can
-            # respond with audio on the next turn (the text API gives us
-            # a guaranteed text reply, but the Live session needs the context).
+            # Inject into the Gemini Live session so it can respond with audio
             await voice_text_queue.put(student_text)
 
-            reply = await client.generate_text_reply(
-                user_text=student_text,
-                system_prompt=effective_prompt,
-                history=chat_history,
-            )
-            logger.info(
-                "%s[voice_text] Gemini replied | reply_len=%d", _LOG, len(reply)
-            )
+            # Run text API call in background so receive_loop isn't blocked
+            # (blocking would stall the audio_queue and kill the Live session)
+            async def _bg_voice_text_reply(text: str, prompt: str) -> None:
+                try:
+                    reply = await client.generate_text_reply(
+                        user_text=text,
+                        system_prompt=prompt,
+                        history=chat_history,
+                    )
+                    logger.info(
+                        "%s[voice_text] Gemini replied | reply_len=%d", _LOG, len(reply)
+                    )
+                    chat_history.append({"role": "user", "text": text})
+                    chat_history.append({"role": "model", "text": reply})
+                    await websocket.send_json(
+                        {"type": "message", "role": "tutor", "text": reply}
+                    )
+                except Exception as exc:
+                    logger.error(
+                        "%s[voice_text] background reply failed: %s", _LOG, exc
+                    )
 
-            chat_history.append({"role": "user", "text": student_text})
-            chat_history.append({"role": "model", "text": reply})
-
-            await websocket.send_json(
-                {"type": "message", "role": "tutor", "text": reply}
-            )
+            asyncio.create_task(_bg_voice_text_reply(student_text, effective_prompt))
             return
 
         # ── Text path ──────────────────────────────────────────────────────────

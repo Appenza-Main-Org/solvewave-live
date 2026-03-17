@@ -131,7 +131,10 @@ export function useSessionSocket() {
   const scheduleAudioChunk = useCallback((pcmBytes: ArrayBuffer) => {
     // After interrupt, discard remaining audio chunks from the backend
     // until it acknowledges (speaking_end or interrupted status).
-    if (discardAudioRef.current) return;
+    if (discardAudioRef.current) {
+      log.voice(`Audio chunk DISCARDED (${pcmBytes.byteLength} bytes, discardAudioRef=true)`);
+      return;
+    }
 
     const ctx = playbackCtxRef.current;
     if (!ctx) return;
@@ -797,7 +800,15 @@ export function useSessionSocket() {
         return;
       }
 
-      log.ws("sendVoiceText (Live session text injection)", { text: text.slice(0, 80), mode });
+      log.ws("sendVoiceText (Live session text injection)", {
+        text: text.slice(0, 80),
+        mode,
+        echoSuppress: echoSuppressRef.current,
+        micMuted: micMutedRef.current,
+        discardAudio: discardAudioRef.current,
+        isSpeaking: speakingTimerRef.current !== null,
+        interruptGrace: interruptGraceRef.current,
+      });
       ws.send(JSON.stringify({ type: "voice_text", text, mode }));
     },
     []

@@ -190,8 +190,8 @@ class LiveClient:
         """
         from google.genai import types
 
-        try:
-            while True:
+        while True:
+            try:
                 text = await receive_voice_text()
                 if text is None:
                     logger.info("Voice text stream ended [%s]", config.session_id)
@@ -211,13 +211,17 @@ class LiveClient:
                     ],
                     turn_complete=True,  # Signal user turn is done → Gemini will respond
                 )
-        except asyncio.CancelledError:
-            raise
-        except Exception as exc:
-            logger.error(
-                "[SolveWave][backend][voice_text] error [%s]: %s",
-                config.session_id, exc,
-            )
+                logger.info(
+                    "[SolveWave][backend][voice_text] injection OK [%s]", config.session_id,
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.error(
+                    "[SolveWave][backend][voice_text] error (continuing) [%s]: %s",
+                    config.session_id, exc,
+                )
+                # Don't break — continue processing next text message
 
     async def _downstream(self, session, send_audio, config: SessionConfig, send_control=None) -> None:
         """Forward Gemini responses (audio + text + tool calls) to the browser."""
