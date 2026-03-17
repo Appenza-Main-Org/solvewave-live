@@ -4,7 +4,7 @@ import "katex/dist/katex.min.css";
 import "./globals.css";
 
 const cairo = Cairo({
-  subsets: ["latin", "arabic"],
+  subsets: ["latin"],
   variable: "--font-cairo",
 });
 
