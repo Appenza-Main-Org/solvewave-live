@@ -5,25 +5,20 @@ Responsibilities:
 - Accept and authenticate the WebSocket connection
 - Create a SessionConfig (with unique session_id)
 - Wire the audio queue between the browser receive-loop and LiveClient
-- Negotiate WebRTC audio transport (falls back to WebSocket binary if unavailable)
 - Send status / recap JSON frames at session open and close
 - Clean up on disconnect
 
 WebSocket message protocol:
   Browser → Server:
-    binary frame                                                        : raw PCM audio (16 kHz, 16-bit, mono) [fallback only]
+    binary frame                                                        : raw PCM audio (16 kHz, 16-bit, mono)
     text  "END"                                                         : graceful stop signal
     text  {"type":"text","text":"...","mode":"explain|quiz|homework"}   : student text message
     text  {"type":"image","mimeType":"...","data":"...","caption":"...","mode":"..."} : base64 image
-    text  {"type":"rtc_offer","sdp":"..."}                              : WebRTC SDP offer
-    text  {"type":"rtc_ice","candidate":{...}}                          : WebRTC ICE candidate (trickle)
 
   Server → Browser:
     {"type": "status",  "value": "connected", "session_id": "..."}   on open
-    {"type": "rtc_answer", "sdp": "...", "type": "answer"}           WebRTC SDP answer
-    {"type": "rtc_ice_servers", "servers": [...]}                    ICE server config
     {"type": "message", "role": "tutor",      "text": "..."}         text reply
-    binary frame                                                       audio response [fallback only]
+    binary frame                                                       audio response
     {"type": "recap",   "data": {...}}                                 on close
     {"type": "error",   "value": "..."}                               on failure
 """
@@ -40,7 +35,6 @@ from app.agents.tutor_agent import TutorAgent
 from app.config import get_settings
 from app.models.schemas import SessionConfig
 from app.services.live_client import LiveClient
-from app.ws.webrtc_handler import WebRTCHandler
 
 logger = logging.getLogger(__name__)
 
@@ -82,24 +76,11 @@ async def handle_session(websocket: WebSocket) -> None:
     session_start_time = time.time()
     logger.info("%s[session] created session_id=%s", _LOG, config.session_id)
 
-    # Build ICE server list for the browser
-    settings = get_settings()
-    ice_servers: list[dict] = []
-    if settings.stun_urls:
-        ice_servers.append({"urls": settings.stun_urls})
-    if settings.turn_url:
-        ice_servers.append({
-            "urls": [settings.turn_url],
-            "username": settings.turn_username or "",
-            "credential": settings.turn_credential or "",
-        })
-
     await websocket.send_json(
         {
             "type": "status",
             "value": "connected",
             "session_id": config.session_id,
-            "ice_servers": ice_servers,
         }
     )
 
@@ -117,22 +98,15 @@ async def handle_session(websocket: WebSocket) -> None:
     # Format: [{"role": "user"|"model", "text": "..."}]
     chat_history: list[dict] = []
 
-    # WebRTC state — set when browser sends rtc_offer
-    webrtc_handler: WebRTCHandler | None = None
-    use_webrtc = False
-
     # ── Callables passed to LiveClient ─────────────────────────────────────────
 
     async def receive_audio() -> bytes | None:
         return await audio_queue.get()
 
     async def send_audio(audio_bytes: bytes) -> None:
-        """Route audio to WebRTC track or WebSocket binary depending on mode."""
+        """Send audio bytes to the browser via WebSocket binary."""
         try:
-            if use_webrtc and webrtc_handler:
-                webrtc_handler.send_audio(audio_bytes)
-            else:
-                await websocket.send_bytes(audio_bytes)
+            await websocket.send_bytes(audio_bytes)
         except Exception as exc:
             logger.warning(
                 "%s[audio] send failed session=%s: %s", _LOG, config.session_id, exc
@@ -267,102 +241,48 @@ async def handle_session(websocket: WebSocket) -> None:
                 "%s[ws] unknown message type=%r — ignored", _LOG, msg_type
             )
 
-    async def handle_rtc_signaling(data: dict) -> None:
-        """Process WebRTC signaling messages (offer / ICE candidates)."""
-        nonlocal webrtc_handler, use_webrtc
-
-        msg_type = data.get("type")
-
-        if msg_type == "rtc_offer":
-            logger.info(
-                "%s[rtc] SDP offer received | session=%s", _LOG, config.session_id
-            )
-            try:
-                def _on_ice_failed():
-                    nonlocal use_webrtc
-                    logger.info(
-                        "%s[rtc] ICE failed — falling back to WS audio | session=%s",
-                        _LOG, config.session_id,
-                    )
-                    use_webrtc = False
-
-                def _on_ice_connected():
-                    nonlocal use_webrtc
-                    logger.info(
-                        "%s[rtc] ICE connected — WebRTC audio now active | session=%s",
-                        _LOG, config.session_id,
-                    )
-                    use_webrtc = True
-
-                webrtc_handler = WebRTCHandler(
-                    audio_queue=audio_queue,
-                    on_ice_failed=_on_ice_failed,
-                    on_ice_connected=_on_ice_connected,
-                )
-                answer = await webrtc_handler.handle_offer(data["sdp"])
-                await websocket.send_json({"type": "rtc_answer", **answer})
-                # NOTE: use_webrtc stays False until ICE actually connects
-                # (on_ice_connected callback). This prevents sending audio to
-                # a dead WebRTC track on Cloud Run where ICE always fails.
-                logger.info(
-                    "%s[rtc] SDP answer sent, waiting for ICE to connect | session=%s",
-                    _LOG, config.session_id,
-                )
-            except Exception as exc:
-                logger.error(
-                    "%s[rtc] WebRTC negotiation failed: %s | session=%s",
-                    _LOG, exc, config.session_id,
-                )
-                webrtc_handler = None
-                use_webrtc = False
-                await websocket.send_json({
-                    "type": "rtc_error",
-                    "value": "WebRTC negotiation failed, using WebSocket audio",
-                })
-
     async def receive_loop() -> None:
-        nonlocal use_webrtc
         audio_chunks_received = 0
         try:
             while True:
                 message = await websocket.receive()
                 if "bytes" in message and message["bytes"]:
-                    # Only process WS binary audio when NOT using WebRTC
-                    if not use_webrtc:
-                        audio_chunks_received += 1
-                        if audio_chunks_received == 1:
-                            logger.info(
-                                "%s[voice] first PCM chunk received (WS fallback) | session=%s",
-                                _LOG, config.session_id,
-                            )
-                        elif audio_chunks_received % 50 == 0:
-                            logger.debug(
-                                "%s[voice] PCM chunks received so far: %d | session=%s",
-                                _LOG, audio_chunks_received, config.session_id,
-                            )
-                        await audio_queue.put(message["bytes"])
+                    audio_chunks_received += 1
+                    if audio_chunks_received == 1:
+                        logger.info(
+                            "%s[voice] first PCM chunk received | session=%s",
+                            _LOG, config.session_id,
+                        )
+                    elif audio_chunks_received % 50 == 0:
+                        logger.debug(
+                            "%s[voice] PCM chunks received so far: %d | session=%s",
+                            _LOG, audio_chunks_received, config.session_id,
+                        )
+                    await audio_queue.put(message["bytes"])
                 elif "text" in message:
                     if message["text"] == "END":
                         logger.info(
-                            "%s[ws] END received | session=%s total_audio_chunks=%d webrtc=%s",
-                            _LOG, config.session_id, audio_chunks_received, use_webrtc,
+                            "%s[ws] END received | session=%s total_audio_chunks=%d",
+                            _LOG, config.session_id, audio_chunks_received,
                         )
                         await audio_queue.put(None)
                         await voice_text_queue.put(None)
                         break
                     else:
-                        # Parse JSON to check for signaling vs app messages
+                        # Parse JSON to check for app messages
                         try:
                             data = json.loads(message["text"])
-                            if data.get("type") in ("rtc_offer",):
-                                await handle_rtc_signaling(data)
-                            elif data.get("type") == "interrupt":
+                            if data.get("type") == "interrupt":
                                 logger.info(
-                                    "%s[ws] interrupt received from frontend | session=%s",
+                                    "%s[ws] interrupt received (frontend-only, Gemini handles natively) | session=%s",
                                     _LOG, config.session_id,
                                 )
-                                # No-op on backend — Gemini detects barge-in via audio.
-                                # The frontend handles playback flush and state reset.
+                                # NOTE: We do NOT send interrupted/speaking_end here.
+                                # Gemini Live detects barge-in natively via the audio
+                                # stream and sends its own interruption event, which
+                                # live_client._downstream forwards to the frontend.
+                                # Sending status frames here would clear discardAudioRef
+                                # too early, allowing remaining Gemini audio through.
                             else:
                                 await handle_text_message(message["text"])
                         except json.JSONDecodeError:
@@ -406,14 +326,6 @@ async def handle_session(websocket: WebSocket) -> None:
                 _LOG, task_name, result, config.session_id,
             )
 
-    # ── Cleanup WebRTC ─────────────────────────────────────────────────────────
-
-    if webrtc_handler:
-        try:
-            await webrtc_handler.close()
-        except Exception:
-            pass
-
     # ── Session recap ──────────────────────────────────────────────────────────
 
     session_duration = time.time() - session_start_time
@@ -424,6 +336,6 @@ async def handle_session(websocket: WebSocket) -> None:
         pass
 
     logger.info(
-        "%s[session] ended session_id=%s duration=%.1fs webrtc=%s",
-        _LOG, config.session_id, session_duration, use_webrtc,
+        "%s[session] ended session_id=%s duration=%.1fs",
+        _LOG, config.session_id, session_duration,
     )

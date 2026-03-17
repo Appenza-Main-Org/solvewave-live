@@ -70,7 +70,8 @@ function processInlineContent(text: string): string {
   // Backtick math: `...` — render as inline KaTeX if it looks like math,
   // otherwise render as code. Gemini often uses backticks for equations.
   html = html.replace(/`([^`]+?)`/g, (_, content: string) => {
-    const trimmed = content.trim();
+    // Strip $ delimiters if Gemini wraps math in both ` and $ (e.g. `$x^2$`)
+    const trimmed = content.trim().replace(/^\$+|\$+$/g, "").trim();
     // Heuristic: treat as math if it contains math-like characters
     const looksLikeMath = /[=+\-*/^√∫∑πΔ≤≥≠×÷]/.test(trimmed) ||
       /\d+\s*[a-zA-Z]/.test(trimmed) ||   // e.g. "2x", "3n"
@@ -201,37 +202,14 @@ function StreamingTextRenderer({
   const highlightStartIdx = highlightStart >= 0 ? wordOnlyIndices[highlightStart] : -1;
   const highlightEndIdx = highlightEnd >= 0 ? wordOnlyIndices[highlightEnd] : -1;
 
+  // Render with proper math support — use processInlineContent + dangerouslySetInnerHTML
+  // instead of plain text (which would show KaTeX HTML as raw text).
+  const processedHtml = useMemo(() => processInlineContent(text), [text]);
+
   return (
     <div className="space-y-4">
       <p className="leading-[1.8] text-[14px] sm:text-[15px] lg:text-[16px] font-medium tracking-tight">
-        {words.map((word, i) => {
-          if (!word) return null;
-          const isWhitespace = !word.trim();
-          if (isWhitespace) return <span key={i}>{word}</span>;
-
-          const isHighlighted = isActive && i >= highlightStartIdx && i <= highlightEndIdx;
-          // Words before the current position are fully visible (already spoken)
-          const isSpoken = isActive && currentWordPosition >= 0 && wordOnlyIndices.indexOf(i) < currentWordPosition;
-          // Words after the current position are slightly dimmed (not yet spoken)
-          const isUpcoming = isActive && currentWordPosition >= 0 && wordOnlyIndices.indexOf(i) > currentWordPosition + 1;
-
-          return (
-            <span
-              key={i}
-              className={`transition-all duration-200 ${
-                isHighlighted
-                  ? "text-white bg-sw-emerald/20 rounded px-0.5 py-0.5 shadow-[0_0_12px_rgba(16,185,129,0.3)]"
-                  : isSpoken || !isActive
-                  ? "text-obsidian-100"
-                  : isUpcoming
-                  ? "text-obsidian-400"
-                  : "text-obsidian-200"
-              }`}
-            >
-              {word}
-            </span>
-          );
-        })}
+        <span dangerouslySetInnerHTML={{ __html: processedHtml }} />
         {/* Streaming cursor */}
         {isActive && (
           <motion.span
@@ -314,7 +292,10 @@ export default function TranscriptPanel({
           const isStreaming = e.streaming === true;
           const isRtl = isArabicText(e.text);
           const isCurrentlySpeaking = i === lastTutorIdx;
-          const isActiveStreaming = isCurrentlySpeaking && (isStreaming || isSpeaking);
+          // Only use StreamingTextRenderer for entries that are actually streaming
+          // from Gemini Live audio (streaming flag). Text API responses (images, text)
+          // should always use renderTextLines for proper KaTeX math rendering.
+          const isActiveStreaming = isCurrentlySpeaking && isStreaming;
 
           return (
             <motion.div

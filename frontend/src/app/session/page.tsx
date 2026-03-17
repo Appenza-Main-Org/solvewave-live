@@ -94,7 +94,6 @@ export default function SessionPage() {
     startSession,
     stopSession,
     sendText,
-    sendTextQuiet,
     sendVoiceText,
     sendImage,
     pendingSpeak,
@@ -111,8 +110,8 @@ export default function SessionPage() {
   const canSend = isActive && text.trim().length > 0;
 
   // Refs to avoid stale closures in voice transcription callbacks
-  const sendTextQuietRef = useRef(sendTextQuiet);
-  sendTextQuietRef.current = sendTextQuiet;
+  const sendTextRef = useRef(sendText);
+  sendTextRef.current = sendText;
   const sendVoiceTextRef = useRef(sendVoiceText);
   sendVoiceTextRef.current = sendVoiceText;
   const modeRef = useRef(mode);
@@ -121,37 +120,6 @@ export default function SessionPage() {
   isActiveRef.current = isActive;
   const voiceActiveRef = useRef(voiceActive);
   voiceActiveRef.current = voiceActive;
-  const isSpeakingRef = useRef(isSpeaking);
-  isSpeakingRef.current = isSpeaking;
-
-  // ── Echo suppression: cooldown after tutor finishes speaking ────────────
-  // Web Speech API picks up tutor audio from the speaker. The isSpeaking flag
-  // flips false when Gemini sends "speaking_end", but audio buffers are still
-  // draining for 1-3 seconds. This cooldown prevents the echo loop.
-  // BUT: skip cooldown after interrupt — user intentionally interrupted to speak.
-  const speakingCooldownRef = useRef(false);
-  useEffect(() => {
-    if (isSpeaking) {
-      speakingCooldownRef.current = true;
-    } else {
-      // Keep cooldown active for 3s after speaking ends (audio drain time)
-      const timer = setTimeout(() => {
-        speakingCooldownRef.current = false;
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [isSpeaking]);
-
-  // Clear cooldown immediately on interrupt so user's speech is captured
-  useEffect(() => {
-    if (liveState === "interrupted") {
-      speakingCooldownRef.current = false;
-    }
-  }, [liveState]);
-
-  // Track whether transcription was active before we paused it for echo suppression
-  const wasTranscribingRef = useRef(false);
-
   // ── Voice transcription callbacks ─────────────────────────────────────────
 
   const onPartialTranscript = useCallback((text: string) => {
@@ -159,7 +127,7 @@ export default function SessionPage() {
 
     // Ignore echo: Web Speech API picks up tutor speaker output (Live audio or TTS)
     // echoSuppressRef is synchronous (updated instantly on barge-in), unlike isSpeakingRef
-    if (echoSuppressRef.current || speakingCooldownRef.current || ttsSpeakingRef.current) return;
+    if (echoSuppressRef.current || ttsSpeakingRef.current) return;
 
     setTranscript((prev) => {
       const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -184,7 +152,7 @@ export default function SessionPage() {
 
     // Ignore echo: Web Speech API picks up tutor speaker output (Live audio or TTS)
     // echoSuppressRef is synchronous (updated instantly on barge-in), unlike isSpeakingRef
-    if (echoSuppressRef.current || speakingCooldownRef.current || ttsSpeakingRef.current) return;
+    if (echoSuppressRef.current || ttsSpeakingRef.current) return;
 
     const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -214,7 +182,7 @@ export default function SessionPage() {
       if (voiceActiveRef.current) {
         sendVoiceTextRef.current(text, modeRef.current);
       } else {
-        sendTextQuietRef.current(text, modeRef.current);
+        sendTextRef.current(text, modeRef.current, { quiet: true });
       }
     }
   }, [setTranscript]);
@@ -242,32 +210,6 @@ export default function SessionPage() {
       stopTranscription();
     }
   }, [voiceActive, transcriptionRunning, stopTranscription]);
-
-  // ── Pause transcription while tutor is speaking (anti-echo) ────────────
-  // Completely stop Web Speech API during tutor speech to prevent it from
-  // picking up the tutor's voice and creating an infinite echo loop.
-  // Restart after the cooldown ends (3s after speaking stops).
-  useEffect(() => {
-    if (isSpeaking && transcriptionRunning) {
-      wasTranscribingRef.current = true;
-      stopTranscription();
-    }
-  }, [isSpeaking, transcriptionRunning, stopTranscription]);
-
-  // Restart transcription after speaking + cooldown ends
-  useEffect(() => {
-    if (!isSpeaking && wasTranscribingRef.current && voiceActive) {
-      const timer = setTimeout(() => {
-        if (wasTranscribingRef.current && voiceActive) {
-          wasTranscribingRef.current = false;
-          if (transcriptionSupported) {
-            startTranscription();
-          }
-        }
-      }, 3200); // slightly longer than 3s cooldown to ensure clean restart
-      return () => clearTimeout(timer);
-    }
-  }, [isSpeaking, voiceActive, transcriptionSupported, startTranscription]);
 
   // ── Clear pending speak — voice mode uses Gemini Live audio (Kore voice),
   // not browser TTS. Only speak via TTS when voice is OFF.

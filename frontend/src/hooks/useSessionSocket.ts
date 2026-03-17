@@ -5,7 +5,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { TranscriptEntry } from "@/components/TranscriptPanel";
 import type { TutorMode } from "@/components/ModeSelector";
 import { log } from "@/lib/log";
-import { useWebRTC } from "./useWebRTC";
 
 const WS_URL =
   process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000/ws/session";
@@ -61,14 +60,7 @@ export function useSessionSocket() {
   // WebSocket
   const wsRef = useRef<WebSocket | null>(null);
 
-  // WebRTC audio transport (preferred over WS binary)
-  const webrtc = useWebRTC();
-  const webrtcRef = useRef(webrtc);
-  webrtcRef.current = webrtc;
-  // Track whether WebRTC is being used for this session
-  const usingWebRTCRef = useRef(false);
-
-  // Voice / audio refs (used only in WS binary fallback mode)
+  // Voice / audio refs
   const mediaStreamRef   = useRef<MediaStream | null>(null);
   const audioCtxRef      = useRef<AudioContext | null>(null);
   const processorRef     = useRef<ScriptProcessorNode | null>(null);
@@ -80,21 +72,25 @@ export function useSessionSocket() {
   // While muted, audio is NOT sent to Gemini, but energy is still monitored
   // for barge-in detection (user speaking loudly over the tutor).
   const micMutedRef = useRef(false);
-  const micMuteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Count consecutive high-energy frames for barge-in detection
   const bargeInFrameCountRef = useRef(0);
   // When true, discard all incoming audio chunks (after interrupt, until backend
   // acknowledges via speaking_end or interrupted status). Without this, the backend
   // keeps sending audio chunks after interrupt which get played on the new AudioContext.
   const discardAudioRef = useRef(false);
-  // Set true when speaking_end is received — prevents late WS audio chunks from
-  // re-entering speaking state and overriding the mic unmute.
-  const speakingEndReceivedRef = useRef(false);
   // Synchronous echo suppression flag — set true when tutor starts speaking,
   // cleared IMMEDIATELY (not via React state) on barge-in/interrupt/speaking_end.
   // This avoids the stale-ref problem where isSpeakingRef in page.tsx doesn't
   // update until React re-renders, causing Web Speech API transcripts to be dropped.
   const echoSuppressRef = useRef(false);
+  // Post-interrupt grace period: after barge-in/interrupt, allow transcription
+  // for a few seconds even if Gemini starts a new response (speaking_start).
+  // This ensures the user's question gets captured before echo suppression
+  // kicks in for the new tutor response.
+  const interruptGraceRef = useRef(false);
+  const interruptGraceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Debounce: prevent rapid-fire interrupts (min 1s between interrupts)
+  const lastInterruptTimeRef = useRef(0);
 
   // ── Derived live state for the UI indicator ────────────────────────────────
 
@@ -159,31 +155,26 @@ export function useSessionSocket() {
     // ── Keep isSpeaking=true while audio is scheduled for playback ──
     // This ensures the interrupt button stays enabled the entire time
     // audio is actually playing through speakers.
-    if (!usingWebRTCRef.current) {
-      // Always set speaking true when we have audio scheduled
-      setIsSpeaking(true);
+    // Always set speaking true when we have audio scheduled
+    setIsSpeaking(true);
 
-      // Calculate when playback actually ends (from NOW, not from speaking_end)
-      const remainingMs = Math.max(0, (nextPlayTimeRef.current - ctx.currentTime) * 1000);
-      const delay = remainingMs + 400; // 400ms buffer for audio pipeline
+    // Calculate when playback actually ends (from NOW, not from speaking_end)
+    const remainingMs = Math.max(0, (nextPlayTimeRef.current - ctx.currentTime) * 1000);
+    const delay = remainingMs + 400; // 400ms buffer for audio pipeline
 
-      if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current);
-      speakingTimerRef.current = setTimeout(() => {
-        setIsSpeaking(false);
-        setSpeakingStartTime(0);
-        micMutedRef.current = false;
-        bargeInFrameCountRef.current = 0;
-        if (usingWebRTCRef.current) {
-          webrtcRef.current.setMicEnabled(true);
-        }
-      }, delay);
-    }
+    if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current);
+    speakingTimerRef.current = setTimeout(() => {
+      setIsSpeaking(false);
+      setSpeakingStartTime(0);
+      micMutedRef.current = false;
+      bargeInFrameCountRef.current = 0;
+    }, delay);
   }, []);
 
   // ── Voice cleanup (stable — only uses refs + stable setter) ───────────────
 
   const stopVoiceCleanup = useCallback(() => {
-    // Clean up WS fallback audio resources
+    // Clean up audio resources
     mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
     mediaStreamRef.current = null;
 
@@ -204,14 +195,14 @@ export function useSessionSocket() {
       clearTimeout(interruptedTimerRef.current);
       interruptedTimerRef.current = null;
     }
-    if (micMuteTimerRef.current) {
-      clearTimeout(micMuteTimerRef.current);
-      micMuteTimerRef.current = null;
+    if (interruptGraceTimerRef.current) {
+      clearTimeout(interruptGraceTimerRef.current);
+      interruptGraceTimerRef.current = null;
     }
     micMutedRef.current = false;
     discardAudioRef.current = false;
-    speakingEndReceivedRef.current = false;
     echoSuppressRef.current = false;
+    interruptGraceRef.current = false;
 
     setVoiceActive(false);
     setIsSpeaking(false);
@@ -253,13 +244,11 @@ export function useSessionSocket() {
       };
 
       ws.onmessage = (event) => {
-        // Binary frame = PCM audio from Gemini Live (WS fallback only)
+        // Binary frame = PCM audio from Gemini Live
         if (typeof event.data !== "string") {
-          if (!usingWebRTCRef.current) {
-            const size = (event.data as ArrayBuffer).byteLength;
-            log.voice(`Audio chunk received from backend: ${size} bytes, playbackCtx=${playbackCtxRef.current?.state}`);
-            scheduleAudioChunk(event.data as ArrayBuffer);
-          }
+          const size = (event.data as ArrayBuffer).byteLength;
+          log.voice(`Audio chunk received from backend: ${size} bytes, playbackCtx=${playbackCtxRef.current?.state}`);
+          scheduleAudioChunk(event.data as ArrayBuffer);
           return;
         }
 
@@ -274,32 +263,23 @@ export function useSessionSocket() {
 
         log.ws(`Received type=${msg.type}`, msg);
 
-        // ── WebRTC signaling ────────────────────────────────────────────
-        if (msg.type === "rtc_answer" && typeof msg.sdp === "string") {
-          log.voice("[WebRTC] Received SDP answer from server");
-          webrtcRef.current.handleAnswer(msg.sdp as string);
-          return;
-        }
-        if (msg.type === "rtc_error") {
-          log.voice("[WebRTC] Server-side error, falling back to WS audio");
-          usingWebRTCRef.current = false;
-          return;
-        }
-
-        // ── Speaking state (used by both WebRTC and WS modes) ───────────
+        // ── Speaking state ───────────────────────────────────────────────
         if (msg.type === "status" && msg.value === "speaking_start") {
           setIsSpeaking(true);
           setSpeakingStartTime(Date.now());
-          echoSuppressRef.current = true; // Suppress transcription during tutor speech
+          // Only suppress transcription if NOT in a post-interrupt grace period.
+          // After barge-in, the user is likely still speaking and we need their
+          // words captured before suppressing echo for the new tutor response.
+          if (!interruptGraceRef.current) {
+            echoSuppressRef.current = true;
+          } else {
+            log.voice("speaking_start during interrupt grace — keeping echo suppression OFF");
+          }
           // Reset flags — new speech turn, accept audio
           discardAudioRef.current = false;
-          speakingEndReceivedRef.current = false;
           // Mute mic to Gemini to prevent echo (tutor audio → speaker → mic → Gemini)
           micMutedRef.current = true;
           bargeInFrameCountRef.current = 0;
-          if (usingWebRTCRef.current) {
-            webrtcRef.current.setMicEnabled(false);
-          }
           if (speakingTimerRef.current) {
             clearTimeout(speakingTimerRef.current);
             speakingTimerRef.current = null;
@@ -313,17 +293,11 @@ export function useSessionSocket() {
           return;
         }
         if (msg.type === "status" && msg.value === "speaking_end") {
-          // Mark that speaking_end was received — prevents late WS audio
-          // chunks from re-entering speaking state
-          speakingEndReceivedRef.current = true;
           echoSuppressRef.current = false; // Allow transcription
           // Unmute mic IMMEDIATELY so user can speak right away.
           // Don't wait for the UI timer — mic access is critical.
           micMutedRef.current = false;
           bargeInFrameCountRef.current = 0;
-          if (usingWebRTCRef.current) {
-            webrtcRef.current.setMicEnabled(true);
-          }
           discardAudioRef.current = false; // Accept audio for next turn
 
           // Calculate how long until all scheduled audio finishes playing.
@@ -336,10 +310,7 @@ export function useSessionSocket() {
             ? Math.max(0, (nextPlayTimeRef.current - playbackCtx.currentTime) * 1000)
             : 0;
           // Add a small buffer (300ms) to account for audio pipeline latency
-          const delay = Math.max(
-            usingWebRTCRef.current ? 300 : 600,
-            remainingMs + 300
-          );
+          const delay = Math.max(600, remainingMs + 300);
           log.voice(`speaking_end: remaining playback ${remainingMs.toFixed(0)}ms, delay ${delay.toFixed(0)}ms`);
 
           if (speakingTimerRef.current) clearTimeout(speakingTimerRef.current);
@@ -349,9 +320,6 @@ export function useSessionSocket() {
             // Safety: re-ensure mic is unmuted (in case late chunk re-muted)
             micMutedRef.current = false;
             bargeInFrameCountRef.current = 0;
-            if (usingWebRTCRef.current) {
-              webrtcRef.current.setMicEnabled(true);
-            }
             // Mark the last streaming entry as done (safety net —
             // transcript_done should handle this, but finalize if it didn't)
             setTranscript((prev) => {
@@ -438,23 +406,6 @@ export function useSessionSocket() {
             text: "Hi! I'm your live math tutor — what problem are we solving today?",
             timestamp: timestamp(),
           });
-
-          // Attempt WebRTC upgrade for audio transport
-          const iceServers = (msg.ice_servers as RTCIceServer[] | undefined) ?? [];
-          webrtcRef.current
-            .negotiate(ws, iceServers)
-            .then((ok) => {
-              usingWebRTCRef.current = ok;
-              log.voice(
-                ok
-                  ? "[WebRTC] Audio transport active"
-                  : "[WebRTC] Falling back to WebSocket audio"
-              );
-            })
-            .catch(() => {
-              usingWebRTCRef.current = false;
-              log.voice("[WebRTC] Negotiation failed — using WS audio");
-            });
         } else if (msg.type === "message" && typeof msg.text === "string") {
           log.ws("Tutor message received", { text: msg.text.slice(0, 80) });
           setIsThinking(false);
@@ -468,14 +419,33 @@ export function useSessionSocket() {
           const summary = typeof data.summary === "string" ? data.summary : "Session complete.";
           append({ role: "tutor", text: `✓ ${summary}`, timestamp: timestamp() });
         } else if (msg.type === "status" && msg.value === "interrupted") {
-          log.voice("Barge-in: tutor interrupted by student");
-          discardAudioRef.current = false; // Backend acknowledged — accept audio again
+          // Gemini Live native barge-in: Gemini detected user speech over tutor
+          // audio. Frontend _performInterrupt already handled most of this
+          // (flushed playback, unmuted mic, set discardAudio). But if this
+          // arrives without a prior _performInterrupt (e.g., Gemini detected
+          // barge-in before our RMS threshold), handle it here too.
+          log.voice("Gemini barge-in acknowledged");
           echoSuppressRef.current = false; // Allow transcription
+          // DON'T clear discardAudioRef here — there may still be buffered
+          // audio chunks in the WebSocket that arrived before Gemini stopped.
+          // The speaking_end / turn_complete handler will clear it.
+          _flushPlayback();
           setIsSpeaking(false);
           setSpeakingStartTime(0);
+          micMutedRef.current = false;
+          bargeInFrameCountRef.current = 0;
           if (speakingTimerRef.current) {
             clearTimeout(speakingTimerRef.current);
             speakingTimerRef.current = null;
+          }
+          // Start grace period if not already active
+          if (!interruptGraceRef.current) {
+            interruptGraceRef.current = true;
+            if (interruptGraceTimerRef.current) clearTimeout(interruptGraceTimerRef.current);
+            interruptGraceTimerRef.current = setTimeout(() => {
+              interruptGraceRef.current = false;
+              log.voice("Interrupt grace period ended (Gemini barge-in)");
+            }, 4000);
           }
           // Mark any streaming entry as done (keep text shown so far)
           setTranscript((prev) => {
@@ -512,11 +482,6 @@ export function useSessionSocket() {
         // without this guard the stale onclose would kill the retry.
         if (wsRef.current === ws) {
           stopVoiceCleanup();
-          // Clean up WebRTC
-          if (usingWebRTCRef.current) {
-            webrtcRef.current.close();
-            usingWebRTCRef.current = false;
-          }
           setStatus("idle");
           setIsThinking(false);
           wsRef.current = null;
@@ -558,12 +523,6 @@ export function useSessionSocket() {
   const stopSession = useCallback(() => {
     log.session("Stopping session");
     stopVoiceCleanup();
-
-    // Close WebRTC if active
-    if (usingWebRTCRef.current) {
-      webrtcRef.current.close();
-      usingWebRTCRef.current = false;
-    }
 
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
@@ -609,31 +568,7 @@ export function useSessionSocket() {
           if (bargeInFrameCountRef.current >= BARGE_IN_FRAMES_REQUIRED) {
             // User is speaking loudly over the tutor → trigger barge-in!
             log.voice(`Barge-in detected! RMS=${rms.toFixed(3)} frames=${bargeInFrameCountRef.current}`);
-            discardAudioRef.current = true;
-            micMutedRef.current = false;
-            bargeInFrameCountRef.current = 0;
-            // Stop tutor playback immediately
-            _flushPlayback();
-            // Clear speaking state immediately so Web Speech API transcription
-            // is unblocked. Without this, isSpeakingRef stays true until the
-            // backend sends "interrupted" status, blocking all transcription.
-            echoSuppressRef.current = false; // Synchronous — unblocks transcription NOW
-            setIsSpeaking(false);
-            setSpeakingStartTime(0);
-            setIsInterrupted(true);
-            if (interruptedTimerRef.current) clearTimeout(interruptedTimerRef.current);
-            interruptedTimerRef.current = setTimeout(() => setIsInterrupted(false), 900);
-            if (speakingTimerRef.current) {
-              clearTimeout(speakingTimerRef.current);
-              speakingTimerRef.current = null;
-            }
-            // Safety timeout for discardAudioRef
-            setTimeout(() => {
-              if (discardAudioRef.current) {
-                log.voice("Safety reset: clearing discardAudioRef after auto barge-in");
-                discardAudioRef.current = false;
-              }
-            }, 3000);
+            _performInterrupt("auto");
             // Fall through to send this frame to Gemini
           } else {
             return; // Wait for more consecutive frames
@@ -684,6 +619,76 @@ export function useSessionSocket() {
     }
   }
 
+  /** Unified interrupt logic — used by both auto barge-in and manual button. */
+  function _performInterrupt(source: string) {
+    // Debounce: prevent rapid-fire interrupts
+    const now = Date.now();
+    if (now - lastInterruptTimeRef.current < 1000) {
+      log.voice(`Interrupt debounced (${source}) — too soon after last interrupt`);
+      return;
+    }
+    lastInterruptTimeRef.current = now;
+
+    discardAudioRef.current = true;
+    echoSuppressRef.current = false;
+    micMutedRef.current = false;
+    bargeInFrameCountRef.current = 0;
+    _flushPlayback();
+    setIsSpeaking(false);
+    setSpeakingStartTime(0);
+    if (speakingTimerRef.current) {
+      clearTimeout(speakingTimerRef.current);
+      speakingTimerRef.current = null;
+    }
+
+    // Start post-interrupt grace period: allow transcription for 4s even if
+    // Gemini starts a new response. This ensures the user's question gets
+    // captured before echo suppression kicks in for the new turn.
+    interruptGraceRef.current = true;
+    if (interruptGraceTimerRef.current) clearTimeout(interruptGraceTimerRef.current);
+    interruptGraceTimerRef.current = setTimeout(() => {
+      interruptGraceRef.current = false;
+      // If tutor is speaking when grace expires, re-enable echo suppression
+      // (the speaking_start handler skipped it during grace)
+      if (echoSuppressRef.current === false) {
+        // Check if we're in a speaking state — if so, enable suppression now
+        // (isSpeaking state may have been set by scheduleAudioChunk)
+      }
+      log.voice(`Interrupt grace period ended (${source})`);
+    }, 4000);
+
+    // Mark streaming entry as interrupted
+    setTranscript((prev) => {
+      const lastIdx = prev.length - 1;
+      if (lastIdx >= 0 && prev[lastIdx].streaming) {
+        const updated = [...prev];
+        if (updated[lastIdx].text.trim()) {
+          updated[lastIdx] = { ...updated[lastIdx], streaming: false, text: updated[lastIdx].text.trim() + " ✋" };
+        } else {
+          updated.splice(lastIdx, 1);
+        }
+        return updated;
+      }
+      return prev;
+    });
+    setIsInterrupted(true);
+    if (interruptedTimerRef.current) clearTimeout(interruptedTimerRef.current);
+    interruptedTimerRef.current = setTimeout(() => setIsInterrupted(false), 900);
+    // Notify backend (informational only — Gemini handles barge-in natively)
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: "interrupt" }));
+    }
+    // Safety timeout for discardAudioRef
+    setTimeout(() => {
+      if (discardAudioRef.current) {
+        log.voice(`Safety reset: clearing discardAudioRef after ${source} interrupt`);
+        discardAudioRef.current = false;
+      }
+    }, 3000);
+    log.voice(`Interrupt performed (${source})`);
+  }
+
   // ── Voice: start / stop ────────────────────────────────────────────────────
 
   const startVoice = useCallback(async () => {
@@ -693,22 +698,13 @@ export function useSessionSocket() {
       return;
     }
 
-    // ── WebRTC mode: just unmute the track ────────────────────────────────
-    if (usingWebRTCRef.current) {
-      log.voice("startVoice: enabling WebRTC mic track");
-      webrtcRef.current.setMicEnabled(true);
-      setVoiceActive(true);
-      log.state("connected → listening (WebRTC)");
-      return;
-    }
-
-    // ── WS fallback mode: capture + resample + stream over WS ─────────────
+    // WS mode: capture + resample + stream over WS
     if (mediaStreamRef.current) {
       log.voice("startVoice: already capturing — ignoring");
       return;
     }
 
-    log.voice("Requesting mic permission (WS fallback)");
+    log.voice("Requesting mic permission");
     try {
       const stream         = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -734,7 +730,7 @@ export function useSessionSocket() {
 
       startMicCapture(captureCtx, stream, ws);
       setVoiceActive(true);
-      log.state("connected → listening (WS fallback)");
+      log.state("connected → listening");
     } catch (err) {
       log.error("Mic permission denied or AudioContext failed", err);
     }
@@ -744,112 +740,35 @@ export function useSessionSocket() {
 
   /** Manually trigger a barge-in (user taps interrupt button). */
   const triggerInterrupt = useCallback(() => {
-    log.voice("Manual barge-in triggered by user");
-    // Discard remaining audio chunks from the backend
-    discardAudioRef.current = true;
-    echoSuppressRef.current = false; // Synchronous — unblocks transcription NOW
-    // Unmute mic so Gemini hears the user
-    micMutedRef.current = false;
-    bargeInFrameCountRef.current = 0;
-    if (usingWebRTCRef.current) {
-      webrtcRef.current.setMicEnabled(true);
-    }
-    // Stop playback immediately
-    _flushPlayback();
-    // Clear speaking state on our side (Gemini will send interrupted status)
-    setIsSpeaking(false);
-    setSpeakingStartTime(0);
-    if (speakingTimerRef.current) {
-      clearTimeout(speakingTimerRef.current);
-      speakingTimerRef.current = null;
-    }
-    // Mark streaming entry as interrupted
-    setTranscript((prev) => {
-      const lastIdx = prev.length - 1;
-      if (lastIdx >= 0 && prev[lastIdx].streaming) {
-        const updated = [...prev];
-        if (updated[lastIdx].text.trim()) {
-          updated[lastIdx] = { ...updated[lastIdx], streaming: false, text: updated[lastIdx].text.trim() + " ✋" };
-        } else {
-          updated.splice(lastIdx, 1);
-        }
-        return updated;
-      }
-      return prev;
-    });
-    setIsInterrupted(true);
-    if (interruptedTimerRef.current) clearTimeout(interruptedTimerRef.current);
-    interruptedTimerRef.current = setTimeout(() => setIsInterrupted(false), 900);
-
-    // Notify backend so it can handle the interruption on the Gemini Live session
-    const ws = wsRef.current;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: "interrupt" }));
-    }
-
-    // Safety timeout: reset discardAudioRef even if backend never acknowledges.
-    // Without this, discardAudioRef stays true forever and blocks all future audio.
-    setTimeout(() => {
-      if (discardAudioRef.current) {
-        log.voice("Safety reset: clearing discardAudioRef after interrupt timeout");
-        discardAudioRef.current = false;
-      }
-    }, 3000);
+    _performInterrupt("manual");
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSpeaking]);
+  }, []);
 
   const stopVoice = useCallback(() => {
     log.voice("stopVoice called by user");
-
-    // WebRTC mode: mute the track (don't tear down)
-    if (usingWebRTCRef.current) {
-      webrtcRef.current.setMicEnabled(false);
-      setVoiceActive(false);
-      log.state("listening → connected (WebRTC mic muted)");
-      return;
-    }
-
-    // WS fallback: full cleanup
     stopVoiceCleanup();
   }, [stopVoiceCleanup]);
 
   // ── Send text ──────────────────────────────────────────────────────────────
 
   const sendText = useCallback(
-    (text: string, mode: TutorMode = "explain") => {
+    (text: string, mode: TutorMode = "explain", options?: { quiet?: boolean }) => {
       const ws = wsRef.current;
       if (!ws || ws.readyState !== WebSocket.OPEN) {
         log.error("sendText called but WS not open");
         return;
       }
 
-      log.ws("sendText", { text: text.slice(0, 80), mode });
-      append({ role: "student", text, timestamp: timestamp() });
+      log.ws("sendText", { text: text.slice(0, 80), mode, quiet: !!options?.quiet });
+      if (!options?.quiet) {
+        append({ role: "student", text, timestamp: timestamp() });
+      }
       setIsThinking(true);
       setLastSentType("text");
-      log.state("connected → thinking");
 
       ws.send(JSON.stringify({ type: "text", text, mode }));
     },
     [append]
-  );
-
-  /** Send text to the backend without appending to transcript (used by voice transcription). */
-  const sendTextQuiet = useCallback(
-    (text: string, mode: TutorMode = "explain") => {
-      const ws = wsRef.current;
-      if (!ws || ws.readyState !== WebSocket.OPEN) {
-        log.error("sendTextQuiet called but WS not open");
-        return;
-      }
-
-      log.ws("sendTextQuiet (voice)", { text: text.slice(0, 80), mode });
-      setIsThinking(true);
-      setLastSentType("text");
-
-      ws.send(JSON.stringify({ type: "text", text, mode }));
-    },
-    []
   );
 
   /** Send text into the active Gemini Live session (not the standard text API).
@@ -966,7 +885,6 @@ export function useSessionSocket() {
     startSession,
     stopSession,
     sendText,
-    sendTextQuiet,
     sendVoiceText,
     sendImage,
     sendImageQuiet,
@@ -977,8 +895,6 @@ export function useSessionSocket() {
     stopVoice,
     /** Manually trigger barge-in (stop tutor + unmute mic) */
     triggerInterrupt,
-    /** Whether audio is flowing via WebRTC (vs WebSocket binary fallback) */
-    usingWebRTC: webrtc.isRTCConnected,
     /** Synchronous echo suppression ref — true while tutor is speaking, cleared instantly on barge-in */
     echoSuppressRef,
   };
