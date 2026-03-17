@@ -152,8 +152,13 @@ async def handle_session(websocket: WebSocket) -> None:
                 _LOG, config.session_id, student_text[:120],
             )
 
-            # Inject into the Gemini Live session so it can respond with audio
-            await voice_text_queue.put(student_text)
+            # NOTE: We intentionally do NOT inject text into the Gemini Live
+            # session here. Sending send_client_content(turn_complete=True)
+            # while audio is streaming via send_realtime_input causes the Live
+            # session to stop responding with audio after the first turn.
+            # Instead, we let the Live session handle audio naturally (Gemini
+            # hears the user through the mic) and use the text API for the
+            # formatted text response independently.
 
             # Run text API call in background so receive_loop isn't blocked
             # (blocking would stall the audio_queue and kill the Live session)
