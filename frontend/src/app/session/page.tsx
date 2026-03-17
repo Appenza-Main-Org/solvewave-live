@@ -166,6 +166,24 @@ export default function SessionPage() {
     };
   }, [setTranscript, onUserSpeechDetectedRef, echoSuppressRef]);
 
+  // ── Echo cooldown: Web Speech API delivers results with a delay. After barge-in,
+  // echoSuppressRef is cleared but pending finals may still contain the tutor's speech.
+  // Track when echo suppression last ended and ignore results for a brief window.
+  const echoSuppressEndTimeRef = useRef(0);
+  // Monitor echoSuppressRef transitions: false→true→false
+  const prevEchoSuppressRef = useRef(false);
+  useEffect(() => {
+    const id = setInterval(() => {
+      const now = echoSuppressRef.current;
+      if (prevEchoSuppressRef.current && !now) {
+        // Transitioned from suppressed → unsuppressed: start cooldown
+        echoSuppressEndTimeRef.current = Date.now();
+      }
+      prevEchoSuppressRef.current = now;
+    }, 100);
+    return () => clearInterval(id);
+  }, [echoSuppressRef]);
+
   // ── Voice transcription callbacks ─────────────────────────────────────────
 
   const onPartialTranscript = useCallback((text: string) => {
@@ -174,6 +192,10 @@ export default function SessionPage() {
     // Ignore echo: Web Speech API picks up tutor speaker output (Live audio or TTS)
     // echoSuppressRef is synchronous (updated instantly on barge-in), unlike isSpeakingRef
     if (echoSuppressRef.current || ttsSpeakingRef.current) return;
+
+    // Ignore results arriving within 1.5s of echo suppression ending — these are
+    // buffered tutor speech that Web Speech API delivers with a delay after barge-in.
+    if (Date.now() - echoSuppressEndTimeRef.current < 1500) return;
 
     // Web Speech API is working! Mark it so the RMS fallback doesn't show.
     webSpeechActiveRef.current = true;
@@ -202,6 +224,13 @@ export default function SessionPage() {
     // Ignore echo: Web Speech API picks up tutor speaker output (Live audio or TTS)
     // echoSuppressRef is synchronous (updated instantly on barge-in), unlike isSpeakingRef
     if (echoSuppressRef.current || ttsSpeakingRef.current) return;
+
+    // Ignore results arriving within 1.5s of echo suppression ending — these are
+    // buffered tutor speech that Web Speech API delivers with a delay after barge-in.
+    if (Date.now() - echoSuppressEndTimeRef.current < 1500) {
+      log.voice(`Ignoring echo final: "${text.slice(0, 50)}..." (${Date.now() - echoSuppressEndTimeRef.current}ms after echo suppress end)`);
+      return;
+    }
 
     const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 

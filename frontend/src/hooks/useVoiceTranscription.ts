@@ -81,9 +81,12 @@ export function useVoiceTranscription(callbacks?: VoiceTranscriptionCallbacks) {
         const transcript = result[0].transcript.trim();
 
         if (result.isFinal) {
+          // Skip empty finals (noise from Web Speech API)
+          if (!transcript) continue;
           log.voice(`Final: "${transcript}"`);
           onFinalRef.current?.(transcript);
         } else {
+          if (!transcript) continue;
           onPartialRef.current?.(transcript);
         }
       }
