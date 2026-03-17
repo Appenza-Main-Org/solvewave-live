@@ -17,12 +17,13 @@ const MIC_SAMPLE_RATE  = 16000;  // Gemini input: 16 kHz
 const OUT_SAMPLE_RATE  = 24000;  // Gemini output: 24 kHz
 
 // Energy threshold for barge-in detection while mic is muted during tutor speech.
-// Echo from speakers typically has RMS 0.01–0.03; actual speech is 0.04+.
-// Lower threshold = easier to interrupt (better UX for competition demo).
-const BARGE_IN_RMS_THRESHOLD = 0.10;
+// Echo from speakers typically has RMS 0.01–0.08 even with AEC enabled;
+// actual speech close to the mic is 0.10+. Set high enough to avoid false
+// barge-ins from speaker echo, which would stop the tutor mid-sentence.
+const BARGE_IN_RMS_THRESHOLD = 0.18;
 // Require sustained loud audio for N consecutive frames to trigger barge-in
-// (prevents one-off noise spikes from interrupting)
-const BARGE_IN_FRAMES_REQUIRED = 3;
+// (prevents one-off noise spikes or brief echo bursts from interrupting)
+const BARGE_IN_FRAMES_REQUIRED = 5;
 
 export type SessionStatus = "idle" | "connecting" | "connected" | "error";
 export type LiveState =
