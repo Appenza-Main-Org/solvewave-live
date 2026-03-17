@@ -63,6 +63,18 @@ export function useVoiceTranscription(callbacks?: VoiceTranscriptionCallbacks) {
       setIsRunning(true);
     };
 
+    rec.onaudiostart = () => {
+      log.voice("Recognition: audio capture started");
+    };
+
+    rec.onspeechstart = () => {
+      log.voice("Recognition: speech detected");
+    };
+
+    rec.onspeechend = () => {
+      log.voice("Recognition: speech ended");
+    };
+
     rec.onresult = (event: any) => {
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
@@ -78,7 +90,14 @@ export function useVoiceTranscription(callbacks?: VoiceTranscriptionCallbacks) {
     };
 
     rec.onerror = (event: any) => {
-      if (event.error === "no-speech" || event.error === "aborted") return;
+      if (event.error === "no-speech") {
+        log.voice("Speech recognition: no-speech detected (will auto-restart)");
+        return;
+      }
+      if (event.error === "aborted") {
+        log.voice("Speech recognition: aborted");
+        return;
+      }
       log.error("Speech recognition error", event.error);
       onErrorRef.current?.(event.error);
       if (["not-allowed", "service-not-allowed"].includes(event.error)) {

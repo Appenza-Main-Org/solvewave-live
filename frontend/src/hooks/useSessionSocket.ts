@@ -88,6 +88,9 @@ export function useSessionSocket() {
   // This ensures the user's question gets captured before echo suppression
   // kicks in for the new tutor response.
   const interruptGraceRef = useRef(false);
+  // Callback fired when user speech is detected via RMS energy (barge-in or normal).
+  // Used as a fallback to show "🎤 Speaking..." when Web Speech API fails silently.
+  const onUserSpeechDetectedRef = useRef<(() => void) | null>(null);
   const interruptGraceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Debounce: prevent rapid-fire interrupts (min 1s between interrupts)
   const lastInterruptTimeRef = useRef(0);
@@ -579,6 +582,17 @@ export function useSessionSocket() {
         }
       }
 
+      // Detect user speech via RMS when mic is active (not muted).
+      // This fires even when Web Speech API fails silently.
+      {
+        let sumSq = 0;
+        for (let i = 0; i < input.length; i++) sumSq += input[i] * input[i];
+        const rms = Math.sqrt(sumSq / input.length);
+        if (rms > 0.03) {
+          onUserSpeechDetectedRef.current?.();
+        }
+      }
+
       // Resample from native rate to 16 kHz + convert to Int16 PCM
       const outLen = Math.round(input.length / ratio);
       const int16  = new Int16Array(outLen);
@@ -897,6 +911,8 @@ export function useSessionSocket() {
     triggerInterrupt,
     /** Synchronous echo suppression ref — true while tutor is speaking, cleared instantly on barge-in */
     echoSuppressRef,
+    /** Ref for user speech detection callback (RMS-based fallback when Web Speech API fails) */
+    onUserSpeechDetectedRef,
   };
 }
 

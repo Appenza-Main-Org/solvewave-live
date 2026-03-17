@@ -102,6 +102,7 @@ export default function SessionPage() {
     stopVoice,
     triggerInterrupt,
     echoSuppressRef,
+    onUserSpeechDetectedRef,
   } = useSessionSocket();
 
   const { formatted: timerDisplay } = useSessionTimer(isActive);
@@ -120,6 +121,51 @@ export default function SessionPage() {
   isActiveRef.current = isActive;
   const voiceActiveRef = useRef(voiceActive);
   voiceActiveRef.current = voiceActive;
+
+  // ── Fallback speech indicator (when Web Speech API fails silently) ────────
+  // Track whether Web Speech API has produced any result in this voice session
+  const webSpeechActiveRef = useRef(false);
+  const speechFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Wire up RMS-based speech detection from useSessionSocket
+  useEffect(() => {
+    onUserSpeechDetectedRef.current = () => {
+      // If Web Speech API is working, don't show fallback
+      if (webSpeechActiveRef.current) return;
+      // If echo suppressed (tutor speaking), don't show fallback
+      if (echoSuppressRef.current || ttsSpeakingRef.current) return;
+      // If not active, ignore
+      if (!isActiveRef.current || !voiceActiveRef.current) return;
+
+      // Debounce: only create/update the "Speaking..." entry every 500ms
+      if (speechFallbackTimerRef.current) return;
+      speechFallbackTimerRef.current = setTimeout(() => {
+        speechFallbackTimerRef.current = null;
+      }, 500);
+
+      const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      setTranscript((prev) => {
+        const lastIdx = prev.length - 1;
+        // If we already have a speaking fallback entry, keep it
+        if (lastIdx >= 0 && prev[lastIdx].role === "student" && prev[lastIdx].partial && prev[lastIdx].text === "🎤 Speaking...") {
+          return prev;
+        }
+        // If we have a partial student entry, don't overwrite it (Web Speech API IS working)
+        if (lastIdx >= 0 && prev[lastIdx].role === "student" && prev[lastIdx].partial) {
+          return prev;
+        }
+        return [...prev, { role: "student" as const, text: "🎤 Speaking...", timestamp: now, partial: true }];
+      });
+    };
+    return () => {
+      onUserSpeechDetectedRef.current = null;
+      if (speechFallbackTimerRef.current) {
+        clearTimeout(speechFallbackTimerRef.current);
+        speechFallbackTimerRef.current = null;
+      }
+    };
+  }, [setTranscript, onUserSpeechDetectedRef, echoSuppressRef]);
+
   // ── Voice transcription callbacks ─────────────────────────────────────────
 
   const onPartialTranscript = useCallback((text: string) => {
@@ -128,6 +174,9 @@ export default function SessionPage() {
     // Ignore echo: Web Speech API picks up tutor speaker output (Live audio or TTS)
     // echoSuppressRef is synchronous (updated instantly on barge-in), unlike isSpeakingRef
     if (echoSuppressRef.current || ttsSpeakingRef.current) return;
+
+    // Web Speech API is working! Mark it so the RMS fallback doesn't show.
+    webSpeechActiveRef.current = true;
 
     setTranscript((prev) => {
       const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -199,7 +248,10 @@ export default function SessionPage() {
       autoVoiceRef.current = false;
       startVoice();
       if (transcriptionSupported) {
-        startTranscription();
+        // Delay Web Speech API start to avoid mic conflict with getUserMedia.
+        // Both APIs try to access the mic simultaneously; Chrome may starve
+        // Web Speech API if getUserMedia grabs the mic first.
+        setTimeout(() => startTranscription(), 1500);
       }
     }
   }, [liveState, startVoice, transcriptionSupported, startTranscription]);
@@ -282,6 +334,7 @@ export default function SessionPage() {
       // Cancel any pending TTS and stop voice
       if ("speechSynthesis" in window) speechSynthesis.cancel();
       ttsSpeakingRef.current = false;
+      webSpeechActiveRef.current = false;
       stopVoice();
       if (transcriptionRunning) {
         stopTranscription();
@@ -293,7 +346,8 @@ export default function SessionPage() {
       ttsSpeakingRef.current = false;
       startVoice();
       if (transcriptionSupported) {
-        startTranscription();
+        // Delay Web Speech API to avoid mic conflict with getUserMedia
+        setTimeout(() => startTranscription(), 1500);
       }
     }
   }
