@@ -37,8 +37,29 @@ interface TranscriptPanelProps {
 // ── Inline content processor (math + bold) ───────────────────────────────────
 
 function processInlineContent(text: string): string {
+  // Safety: strip any leaked KaTeX/HTML markup from the text.
+  // This can happen if Gemini's output_transcription includes HTML fragments
+  // or if processed KaTeX output leaks into state during streaming.
+  let cleaned = text;
+  if (/<span[\s>]|<\/span>|<math[\s>]|<annotation[\s>]/.test(cleaned)) {
+    // Try to extract LaTeX source from annotation tags first
+    const annotations: string[] = [];
+    cleaned.replace(/<annotation[^>]*encoding="application\/x[^"]*"[^>]*>([\s\S]*?)<\/annotation>/g, (_, tex) => {
+      annotations.push(tex.trim());
+      return '';
+    });
+    // Strip all HTML tags
+    cleaned = cleaned.replace(/<[^>]+>/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    // Re-insert extracted LaTeX with proper delimiters
+    for (const tex of annotations) {
+      if (tex && !cleaned.includes(`$${tex}$`)) {
+        cleaned = cleaned.replace(tex, `$${tex}$`);
+      }
+    }
+  }
+
   // Escape HTML first (we use dangerouslySetInnerHTML)
-  let html = text
+  let html = cleaned
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
