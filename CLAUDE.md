@@ -76,7 +76,7 @@ Single-subject math tutor with voice, text, and image input. English UI.
 - **GCP Project:** solvewave-live (872506223416)
 - **Frontend:** https://solvewave-frontend-872506223416.us-central1.run.app
 - **Backend:** https://solvewave-backend-872506223416.us-central1.run.app
-- **Current tag:** v0.8.0
+- **Current tag:** v0.9.1
 
 ### Deploy commands
 ```bash
