@@ -157,11 +157,12 @@ class LiveClient:
 
                     # Wait for EITHER:
                     #  - upstream ends (browser disconnect / END signal)
-                    #  - reconnect_event fires (watchdog detected stall)
+                    #  - downstream ends (Gemini closed response stream)
+                    #  - reconnect_event fires (watchdog / downstream-exit)
                     reconnect_waiter = asyncio.create_task(reconnect_event.wait())
 
                     done, _pending = await asyncio.wait(
-                        [upstream_task, reconnect_waiter],
+                        [upstream_task, downstream_task, reconnect_waiter],
                         return_when=asyncio.FIRST_COMPLETED,
                     )
 
@@ -562,9 +563,19 @@ class LiveClient:
         except Exception as exc:
             logger.error("Downstream error [%s]: %s", config.session_id, exc)
         finally:
-            # Cancel watchdog on exit
             if _watchdog_task and not _watchdog_task.done():
                 _watchdog_task.cancel()
+                # Downstream ended while watchdog was still active — Gemini
+                # closed its response stream after the interrupt.  Trigger
+                # reconnect immediately instead of waiting for the (now
+                # cancelled) watchdog timer.
+                if reconnect_event is not None:
+                    logger.warning(
+                        "[SolveWave][backend][voice] downstream ended while "
+                        "watchdog active — triggering reconnect [%s]",
+                        config.session_id,
+                    )
+                    reconnect_event.set()
 
     # ── Text reply (non-Live, standard generate API) ───────────────────────────
 
