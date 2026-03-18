@@ -337,6 +337,7 @@ class LiveClient:
 
         # Post-interrupt watchdog state
         _watchdog_task: asyncio.Task | None = None
+        _was_cancelled = False
 
         try:
             async for response in session.receive():
@@ -559,23 +560,29 @@ class LiveClient:
                     transcription_parts = []
 
         except asyncio.CancelledError:
+            _was_cancelled = True
             raise
         except Exception as exc:
             logger.error("Downstream error [%s]: %s", config.session_id, exc)
         finally:
             if _watchdog_task and not _watchdog_task.done():
                 _watchdog_task.cancel()
-                # Downstream ended while watchdog was still active — Gemini
-                # closed its response stream after the interrupt.  Trigger
-                # reconnect immediately instead of waiting for the (now
-                # cancelled) watchdog timer.
-                if reconnect_event is not None:
-                    logger.warning(
-                        "[SolveWave][backend][voice] downstream ended while "
-                        "watchdog active — triggering reconnect [%s]",
-                        config.session_id,
-                    )
-                    reconnect_event.set()
+
+            # Gemini Live's native audio model closes the response stream
+            # after every completed turn.  If the downstream ended naturally
+            # (not cancelled by _run_live), trigger a reconnect so the next
+            # user utterance gets a voice response on a fresh session.
+            if (
+                not _was_cancelled
+                and reconnect_event is not None
+                and not reconnect_event.is_set()
+            ):
+                logger.info(
+                    "[SolveWave][backend][voice] downstream ended (session "
+                    "stream closed) — triggering reconnect [%s]",
+                    config.session_id,
+                )
+                reconnect_event.set()
 
     # ── Text reply (non-Live, standard generate API) ───────────────────────────
 
