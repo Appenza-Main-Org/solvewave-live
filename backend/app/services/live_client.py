@@ -335,7 +335,6 @@ class LiveClient:
         transcription_parts: list[str] = []
 
         # Post-interrupt watchdog state
-        _post_interrupt = False
         _watchdog_task: asyncio.Task | None = None
 
         try:
@@ -373,11 +372,14 @@ class LiveClient:
                     response.server_content
                     and response.server_content.interrupted
                 ):
-                    logger.info(
-                        "[SolveWave][backend][voice] barge-in / interruption [%s]",
-                        config.session_id,
+                    _also_turn_complete = bool(
+                        response.server_content.turn_complete
                     )
-                    _post_interrupt = True  # arm the watchdog for the next turn_complete
+                    logger.info(
+                        "[SolveWave][backend][voice] barge-in / interruption "
+                        "(turn_complete=%s) [%s]",
+                        _also_turn_complete, config.session_id,
+                    )
                     audio_chunks_sent = 0
                     thinking_parts = []
                     transcription_parts = []
@@ -388,6 +390,21 @@ class LiveClient:
                             logger.warning(
                                 "[SolveWave][backend][voice] send_control failed: %s", exc
                             )
+
+                    # ★ Start watchdog IMMEDIATELY on interrupt — don't wait
+                    # for turn_complete (it may be on this same response, or
+                    # may never arrive at all for native-audio models).
+                    if reconnect_event is not None:
+                        if _watchdog_task and not _watchdog_task.done():
+                            _watchdog_task.cancel()
+                        _watchdog_task = asyncio.create_task(
+                            self._post_interrupt_watchdog(reconnect_event, config)
+                        )
+                        logger.info(
+                            "[SolveWave][backend][voice] watchdog started on "
+                            "interrupt (%.0fs) [%s]",
+                            self._WATCHDOG_TIMEOUT, config.session_id,
+                        )
                     continue
 
                 # ── Tool call ──────────────────────────────────────────────────
@@ -499,10 +516,10 @@ class LiveClient:
                     logger.info(
                         "[SolveWave][backend][voice] turn complete | audio_chunks=%d "
                         "transcription_parts=%d thinking_parts=%d source=%s "
-                        "post_interrupt=%s [%s]",
+                        "watchdog_active=%s [%s]",
                         audio_chunks_sent, len(transcription_parts), len(thinking_parts),
                         "transcription" if transcription_parts else "audio_only(no_text)",
-                        _post_interrupt, config.session_id,
+                        bool(_watchdog_task and not _watchdog_task.done()), config.session_id,
                     )
 
                     # Send speaking_end
@@ -535,19 +552,6 @@ class LiveClient:
                                 # Rolling window: keep last 10 turns
                                 while len(conv_history) > 10:
                                     conv_history.pop(0)
-
-                    # ★ Start watchdog if this turn_complete follows an interrupt
-                    if _post_interrupt and reconnect_event is not None:
-                        _post_interrupt = False
-                        if _watchdog_task and not _watchdog_task.done():
-                            _watchdog_task.cancel()
-                        _watchdog_task = asyncio.create_task(
-                            self._post_interrupt_watchdog(reconnect_event, config)
-                        )
-                        logger.info(
-                            "[SolveWave][backend][voice] watchdog started (%.0fs) [%s]",
-                            self._WATCHDOG_TIMEOUT, config.session_id,
-                        )
 
                     audio_chunks_sent = 0
                     thinking_parts = []
