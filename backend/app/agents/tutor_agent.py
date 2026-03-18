@@ -171,6 +171,12 @@ class TutorAgent:
             # Enable text transcription of audio output so the frontend can
             # display the tutor's words in the transcript panel as they're spoken.
             output_audio_transcription=types.AudioTranscriptionConfig(),
+            # NOTE: input_audio_transcription is NOT supported by the native
+            # audio model — enabling it silently breaks audio responses.
+            # Using automatic VAD (default). The upstream audio gating in
+            # live_client._upstream only forwards speech chunks + a short
+            # trailing buffer, giving Gemini clear silence boundaries so
+            # its VAD reliably detects end-of-turn after barge-in.
             system_instruction=types.Content(
                 parts=[types.Part(text=self._system_prompt)],
                 role="user",

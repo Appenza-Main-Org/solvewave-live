@@ -95,6 +95,9 @@ export function useSessionSocket() {
   const interruptGraceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Debounce: prevent rapid-fire interrupts (min 1s between interrupts)
   const lastInterruptTimeRef = useRef(0);
+  // Fallback TTS: set true when Gemini Live reconnect limit exceeded.
+  // Subsequent text API responses are spoken via window.speechSynthesis.
+  const fallbackTTSRef = useRef(false);
 
   // ── Derived live state for the UI indicator ────────────────────────────────
 
@@ -210,6 +213,7 @@ export function useSessionSocket() {
     discardAudioRef.current = false;
     echoSuppressRef.current = false;
     interruptGraceRef.current = false;
+    fallbackTTSRef.current = false;
 
     setVoiceActive(false);
     setIsSpeaking(false);
@@ -413,10 +417,18 @@ export function useSessionSocket() {
             text: "Hi! I'm your live math tutor — what problem are we solving today?",
             timestamp: timestamp(),
           });
+        } else if (msg.type === "fallback_tts") {
+          // Gemini Live reconnect limit reached — use browser TTS for future responses
+          log.voice("Fallback TTS activated — Gemini Live reconnect limit reached");
+          fallbackTTSRef.current = true;
         } else if (msg.type === "message" && typeof msg.text === "string") {
           log.ws("Tutor message received", { text: msg.text.slice(0, 80) });
           setIsThinking(false);
           append({ role: "tutor", text: msg.text, timestamp: timestamp() });
+          // Speak via browser TTS when fallback is active and mic is on
+          if (fallbackTTSRef.current && mediaStreamRef.current) {
+            _speakBrowserTTS(msg.text);
+          }
           // Queue text for browser TTS when voice is active (voice_text fallback)
           setPendingSpeak(msg.text);
         } else if (msg.type === "recap" && msg.data) {
@@ -553,17 +565,18 @@ export function useSessionSocket() {
     const ratio     = inputRate / MIC_SAMPLE_RATE;
     log.voice(`Mic: ${inputRate}Hz → ${MIC_SAMPLE_RATE}Hz (ratio ${ratio.toFixed(2)})`);
 
+    let audioFrameCount = 0;
+    let silenceFrameCount = 0;
+
     processor.onaudioprocess = (event) => {
       if (ws.readyState !== WebSocket.OPEN) return;
 
       const input = event.inputBuffer.getChannelData(0);
 
-      // ── Echo gate: don't send audio to Gemini while tutor is speaking ──
-      // This prevents the tutor's voice (played through speakers) from being
-      // picked up by the mic and sent back to Gemini (causing echo loops).
-      // BUT we still monitor energy for barge-in detection below.
+      // ── Barge-in detection while tutor is speaking ──
+      // Monitor RMS energy to detect user speaking over the tutor.
+      // When detected, stop playback and show interrupt in UI.
       if (micMutedRef.current) {
-        // Calculate RMS energy to detect if user is actually speaking
         let sumSquares = 0;
         for (let i = 0; i < input.length; i++) {
           sumSquares += input[i] * input[i];
@@ -573,22 +586,16 @@ export function useSessionSocket() {
         if (rms > BARGE_IN_RMS_THRESHOLD) {
           bargeInFrameCountRef.current++;
           if (bargeInFrameCountRef.current >= BARGE_IN_FRAMES_REQUIRED) {
-            // User is speaking loudly over the tutor → trigger barge-in!
             log.voice(`Barge-in detected! RMS=${rms.toFixed(3)} frames=${bargeInFrameCountRef.current}`);
             _performInterrupt("auto");
-            // Fall through to send this frame to Gemini
-          } else {
-            return; // Wait for more consecutive frames
           }
         } else {
-          bargeInFrameCountRef.current = 0; // Reset counter if energy drops
-          return; // Skip sending — just echo
+          bargeInFrameCountRef.current = 0;
         }
       }
 
-      // Detect user speech via RMS when mic is active (not muted).
-      // This fires even when Web Speech API fails silently.
-      {
+      // Detect user speech via RMS (when mic is not muted — for UI callbacks).
+      if (!micMutedRef.current) {
         let sumSq = 0;
         for (let i = 0; i < input.length; i++) sumSq += input[i] * input[i];
         const rms = Math.sqrt(sumSq / input.length);
@@ -597,7 +604,14 @@ export function useSessionSocket() {
         }
       }
 
-      // Resample from native rate to 16 kHz + convert to Int16 PCM
+      // ── ALWAYS send real mic audio to Gemini ──
+      // Browser AEC (echoCancellation: true in getUserMedia) removes speaker
+      // echo from the mic signal. This is how Google Meet and other real-time
+      // voice apps work. Previously we sent digital silence (all zeros) during
+      // tutor speech, but Gemini's VAD couldn't detect the silence→speech
+      // transition properly, causing it to stop responding after the first turn.
+      // Sending real AEC-processed audio keeps the stream natural and allows
+      // Gemini to detect speech onset/offset reliably across multiple turns.
       const outLen = Math.round(input.length / ratio);
       const int16  = new Int16Array(outLen);
       for (let i = 0; i < outLen; i++) {
@@ -608,6 +622,11 @@ export function useSessionSocket() {
         const s1     = input[Math.min(floor + 1, input.length - 1)] || 0;
         const val    = Math.max(-1, Math.min(1, s0 + frac * (s1 - s0)));
         int16[i]     = val * 32767;
+      }
+
+      audioFrameCount++;
+      if (audioFrameCount % 100 === 0) {
+        log.voice(`Audio frames sent to Gemini: ${audioFrameCount} (real audio, AEC-processed)`);
       }
 
       ws.send(int16.buffer);
@@ -705,6 +724,26 @@ export function useSessionSocket() {
       }
     }, 3000);
     log.voice(`Interrupt performed (${source})`);
+  }
+
+  /** Speak text via browser's built-in speech synthesis (fallback when Gemini audio dies). */
+  function _speakBrowserTTS(text: string) {
+    // Strip markdown/LaTeX for cleaner speech
+    const clean = text
+      .replace(/\$\$[\s\S]+?\$\$/g, "")       // display math
+      .replace(/\$[^\$]+?\$/g, "")             // inline math
+      .replace(/`[^`]+`/g, "")                 // backtick code
+      .replace(/\*\*([^*]+)\*\*/g, "$1")       // bold
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    if (!clean) return;
+
+    window.speechSynthesis.cancel();
+    const utt = new SpeechSynthesisUtterance(clean);
+    utt.rate = 1.0;
+    utt.lang = "en-US";
+    window.speechSynthesis.speak(utt);
+    log.voice(`Browser TTS: "${clean.slice(0, 60)}..."`);
   }
 
   // ── Voice: start / stop ────────────────────────────────────────────────────

@@ -87,10 +87,6 @@ async def handle_session(websocket: WebSocket) -> None:
     # Audio queue: receive_loop puts chunks here; LiveClient drains it
     audio_queue: asyncio.Queue[bytes | None] = asyncio.Queue()
 
-    # Text queue: voice_text messages are injected into the Gemini Live session
-    # (used when Web Speech API captures the student's speech as text)
-    voice_text_queue: asyncio.Queue[str | None] = asyncio.Queue()
-
     agent = TutorAgent()
     client = LiveClient(agent=agent)
 
@@ -137,52 +133,41 @@ async def handle_session(websocket: WebSocket) -> None:
 
         # ── Voice text path ────────────────────────────────────────────────────
         # When voice is active, Web Speech API captures the student's speech as
-        # text. We inject it into the Gemini Live session (so it can respond
-        # with audio) AND call the text API for a guaranteed text reply.
-        #
-        # CRITICAL: The text API call must NOT block the receive_loop, because
-        # blocking it prevents binary audio frames from being queued, which
-        # starves the Gemini Live session and kills the audio connection.
+        # text. Gemini Live SHOULD hear the user through the audio stream and
+        # respond with audio, but after barge-in it often stops producing audio.
+        # As a fallback, we call the text API to ensure the user always gets a
+        # response (displayed as text in the transcript). If Gemini Live also
+        # produces audio, the user gets both — acceptable for reliability.
         if msg_type == "voice_text":
             student_text = str(data.get("text", ""))
             if not student_text.strip():
                 return
             logger.info(
-                "%s[route] voice_text → Live inject + text API (background) | session=%s text=%r",
+                "%s[route] voice_text (text API fallback) | session=%s text=%r",
                 _LOG, config.session_id, student_text[:120],
             )
+            chat_history.append({"role": "user", "text": student_text})
 
-            # NOTE: We intentionally do NOT inject text into the Gemini Live
-            # session here. Sending send_client_content(turn_complete=True)
-            # while audio is streaming via send_realtime_input causes the Live
-            # session to stop responding with audio after the first turn.
-            # Instead, we let the Live session handle audio naturally (Gemini
-            # hears the user through the mic) and use the text API for the
-            # formatted text response independently.
-
-            # Run text API call in background so receive_loop isn't blocked
-            # (blocking would stall the audio_queue and kill the Live session)
-            async def _bg_voice_text_reply(text: str, prompt: str) -> None:
-                try:
-                    reply = await client.generate_text_reply(
-                        user_text=text,
-                        system_prompt=prompt,
-                        history=chat_history,
-                    )
-                    logger.info(
-                        "%s[voice_text] Gemini replied | reply_len=%d", _LOG, len(reply)
-                    )
-                    chat_history.append({"role": "user", "text": text})
+            # Fire text API as fallback — ensures user always gets a response
+            try:
+                reply = await client.generate_text_reply(
+                    user_text=student_text,
+                    system_prompt=effective_prompt,
+                    history=chat_history,
+                )
+                if reply and reply.strip():
                     chat_history.append({"role": "model", "text": reply})
                     await websocket.send_json(
                         {"type": "message", "role": "tutor", "text": reply}
                     )
-                except Exception as exc:
-                    logger.error(
-                        "%s[voice_text] background reply failed: %s", _LOG, exc
+                    logger.info(
+                        "%s[voice_text] text API fallback sent | len=%d session=%s",
+                        _LOG, len(reply), config.session_id,
                     )
-
-            asyncio.create_task(_bg_voice_text_reply(student_text, effective_prompt))
+            except Exception as exc:
+                logger.error(
+                    "%s[voice_text] text API fallback failed: %s", _LOG, exc
+                )
             return
 
         # ── Text path ──────────────────────────────────────────────────────────
@@ -279,7 +264,6 @@ async def handle_session(websocket: WebSocket) -> None:
                             _LOG, config.session_id, audio_chunks_received,
                         )
                         await audio_queue.put(None)
-                        await voice_text_queue.put(None)
                         break
                     else:
                         # Parse JSON to check for app messages
@@ -305,20 +289,16 @@ async def handle_session(websocket: WebSocket) -> None:
                 "%s[ws] client disconnected | session=%s", _LOG, config.session_id
             )
             await audio_queue.put(None)
-            await voice_text_queue.put(None)
         except Exception as exc:
             logger.error(
                 "%s[ws] receive loop error | session=%s: %s\n%s",
                 _LOG, config.session_id, exc, traceback.format_exc(),
             )
             await audio_queue.put(None)
-            await voice_text_queue.put(None)
 
     # ── Run both tasks concurrently ────────────────────────────────────────────
 
     receive_task = asyncio.create_task(receive_loop())
-    async def receive_voice_text() -> str | None:
-        return await voice_text_queue.get()
 
     bridge_task = asyncio.create_task(
         client.run(
@@ -326,7 +306,7 @@ async def handle_session(websocket: WebSocket) -> None:
             send_audio=send_audio,
             config=config,
             send_control=send_control,
-            receive_voice_text=receive_voice_text,
+            conv_history=chat_history,
         )
     )
 

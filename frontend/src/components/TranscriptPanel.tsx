@@ -101,20 +101,10 @@ function processInlineContent(text: string): string {
     }
   });
 
-  // Inline math: $...$
-  html = html.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
-    try {
-      return katex.renderToString(math.trim(), {
-        displayMode: false,
-        throwOnError: false,
-      });
-    } catch {
-      return `$${math}$`;
-    }
-  });
-
-  // Backtick math: `...` — render as inline KaTeX if it looks like math,
-  // otherwise render as code. Gemini often uses backticks for equations.
+  // Backtick math: `...` — MUST run before bare $...$ so that `$x^2$`
+  // is handled here (strip $ delimiters, render KaTeX) rather than having
+  // the bare $...$ regex partially process content inside backticks,
+  // which produces raw KaTeX HTML wrapped in <code> tags.
   html = html.replace(/`([^`]+?)`/g, (_, content: string) => {
     // Strip $ delimiters if Gemini wraps math in both ` and $ (e.g. `$x^2$`)
     const trimmed = content.trim().replace(/^\$+|\$+$/g, "").trim();
@@ -122,7 +112,9 @@ function processInlineContent(text: string): string {
     const looksLikeMath = /[=+\-*/^√∫∑πΔ≤≥≠×÷]/.test(trimmed) ||
       /\d+\s*[a-zA-Z]/.test(trimmed) ||   // e.g. "2x", "3n"
       /[a-zA-Z]\s*[=<>]/.test(trimmed) ||  // e.g. "x = 5"
-      /\\(?:frac|sqrt|sum|int|lim)/.test(trimmed); // LaTeX commands
+      /[a-zA-Z]/.test(trimmed) && /\d/.test(trimmed) || // single var + number
+      /^[a-zA-Z]$/.test(trimmed) ||        // single variable like `x`
+      /\\(?:frac|sqrt|sum|int|lim|text)/.test(trimmed); // LaTeX commands
     if (looksLikeMath) {
       try {
         return katex.renderToString(trimmed, {
@@ -134,6 +126,18 @@ function processInlineContent(text: string): string {
       }
     }
     return `<code class="px-2 py-0.5 rounded bg-white/10 text-sw-emerald font-mono text-[0.9em]">${content}</code>`;
+  });
+
+  // Inline math: $...$ (runs after backtick processing)
+  html = html.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
+    try {
+      return katex.renderToString(math.trim(), {
+        displayMode: false,
+        throwOnError: false,
+      });
+    } catch {
+      return `$${math}$`;
+    }
   });
 
   // Bold: **text**
